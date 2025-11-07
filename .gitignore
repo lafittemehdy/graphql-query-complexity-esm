@@ -1,0 +1,29 @@
+# Build artifacts
+coverage/
+dist/
+
+# Dependencies
+node_modules/
+
+# Package tarballs
+*.tgz
+
+# Log files
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Development/debug scripts
+test-debug.mjs
+test-source-debug.mjs
+
+# Environment files
+.env
+.env.local
+.env.*.local

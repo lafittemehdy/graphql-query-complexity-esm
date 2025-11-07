@@ -1,0 +1,68 @@
+{
+  "name": "graphql-query-complexity-esm",
+  "version": "0.1.0",
+  "description": "GraphQL query complexity analysis for ESM - prevents resource-intensive queries",
+  "keywords": [
+    "graphql",
+    "query-complexity",
+    "validation",
+    "esm",
+    "security",
+    "rate-limiting",
+    "complexity-analysis"
+  ],
+  "author": "Lafitte Mehdy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lafittemehdy/graphql-query-complexity-esm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lafittemehdy/graphql-query-complexity-esm/issues"
+  },
+  "homepage": "https://github.com/lafittemehdy/graphql-query-complexity-esm#readme",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "biome check --unsafe --write && tsc --noEmit",
+    "prepublishOnly": "pnpm run lint && pnpm run build && pnpm test",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "graphql": "^16.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.4",
+    "@types/node": "^24.10.0",
+    "@vitest/coverage-v8": "^4.0.7",
+    "@vitest/ui": "^4.0.7",
+    "graphql": "^16.12.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.7"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "sideEffects": false
+}
