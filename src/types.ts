@@ -1,9 +1,40 @@
 import type {
   FieldNode,
   GraphQLCompositeType,
+  GraphQLError,
   GraphQLField,
   GraphQLSchema,
 } from "graphql";
+
+/**
+ * Arguments passed to complexity estimators
+ */
+export interface ComplexityEstimatorArgs {
+  /**
+   * Field arguments (properly coerced and including variables)
+   */
+  args: Record<string, unknown>;
+
+  /**
+   * The estimated complexity of child selections
+   */
+  childComplexity: number;
+
+  /**
+   * The GraphQL field definition
+   */
+  field: GraphQLField<unknown, unknown>;
+
+  /**
+   * The AST field node
+   */
+  node: FieldNode;
+
+  /**
+   * Parent composite type (Object, Interface, or Union)
+   */
+  type: GraphQLCompositeType;
+}
 
 /**
  * Estimator function to calculate complexity for a field
@@ -27,36 +58,6 @@ export type ComplexityEstimator = (
 ) => number | undefined;
 
 /**
- * Arguments passed to complexity estimators
- */
-export interface ComplexityEstimatorArgs {
-  /**
-   * Field arguments (properly coerced and including variables)
-   */
-  args: Record<string, any>;
-
-  /**
-   * The estimated complexity of child selections
-   */
-  childComplexity: number;
-
-  /**
-   * The GraphQL field definition
-   */
-  field: GraphQLField<any, any>;
-
-  /**
-   * The AST field node
-   */
-  node: FieldNode;
-
-  /**
-   * Parent composite type (Object, Interface, or Union)
-   */
-  type: GraphQLCompositeType;
-}
-
-/**
  * Options for query complexity validation
  */
 export interface QueryComplexityOptions {
@@ -70,6 +71,14 @@ export interface QueryComplexityOptions {
    * Maximum allowed query complexity
    */
   maximumComplexity: number;
+
+  /**
+   * Maximum number of nodes to visit.
+   * This is a safeguard against malicious queries that could cause performance issues.
+   *
+   * @default 10000
+   */
+  maximumNodeCount?: number;
 
   /**
    * Optional callback invoked when complexity calculation completes
@@ -88,7 +97,97 @@ export interface QueryComplexityOptions {
    * Query variables (optional)
    * Used to properly coerce argument values that reference variables
    */
-  variables?: Record<string, any>;
+  variables?: Record<string, unknown>;
+}
+
+/**
+ * Custom error class for query complexity validation failures.
+ * This error is thrown by `getComplexity` when validation fails,
+ * providing access to the underlying GraphQL errors.
+ */
+export class QueryComplexityValidationError extends Error {
+  constructor(public readonly errors: readonly GraphQLError[]) {
+    const message = errors.map((error) => error.message).join("\n");
+    super(message);
+    this.name = "QueryComplexityValidationError";
+  }
+}
+
+/**
+ * Field-specific complexity estimator that uses the `@complexity` directive
+ * on a field definition.
+ *
+ * @returns A complexity estimator function
+ *
+ * @example
+ * // 1. Define the directive in your schema
+ * const typeDefs = `
+ *   directive @complexity(
+ *     value: Int!,
+ *     multipliers: [String!]
+ *   ) on FIELD_DEFINITION
+ *
+ *   type Query {
+ *     posts(limit: Int): [Post!]! @complexity(value: 1, multipliers: ["limit"])
+ *   }
+ * `;
+ *
+ * // 2. Use the estimator
+ * const estimators = [
+ *   fieldExtensionsEstimator(),
+ *   simpleEstimator({ defaultComplexity: 1 })
+ * ];
+ */
+export function fieldExtensionsEstimator(): ComplexityEstimator {
+  return ({ args, childComplexity, field }) => {
+    const complexity = field.extensions?.complexity;
+
+    // Read complexity from directive if not found in extensions
+    if (complexity === undefined && field.astNode?.directives) {
+      const complexityDirective = field.astNode.directives.find(
+        (d) => d.name.value === "complexity",
+      );
+
+      if (complexityDirective?.arguments) {
+        const valueArg = complexityDirective.arguments.find(
+          (arg) => arg.name.value === "value",
+        );
+        const multipliersArg = complexityDirective.arguments.find(
+          (arg) => arg.name.value === "multipliers",
+        );
+
+        if (valueArg?.value.kind === "IntValue") {
+          const baseComplexity = Number.parseInt(valueArg.value.value, 10);
+          if (!Number.isFinite(baseComplexity)) {
+            return undefined;
+          }
+
+          let totalMultiplier = 1;
+          if (multipliersArg?.value.kind === "ListValue") {
+            for (const multiplier of multipliersArg.value.values) {
+              if (
+                multiplier.kind === "StringValue" &&
+                typeof args[multiplier.value] === "number" &&
+                Number.isFinite(args[multiplier.value])
+              ) {
+                totalMultiplier *= args[multiplier.value] as number;
+              }
+            }
+          }
+
+          return baseComplexity + totalMultiplier * childComplexity;
+        }
+      }
+    }
+
+    // Handle complexity defined as a number in extensions
+    if (typeof complexity === "number" && Number.isFinite(complexity)) {
+      return complexity + childComplexity;
+    }
+
+    // Defer to the next estimator
+    return undefined;
+  };
 }
 
 /**
@@ -126,47 +225,4 @@ export function simpleEstimator(
   const defaultComplexity = options.defaultComplexity ?? 1;
 
   return ({ childComplexity }) => defaultComplexity + childComplexity;
-}
-
-/**
- * Field-specific complexity estimator that uses field extensions
- * Falls back to 1 + child complexity
- *
- * @returns A complexity estimator function
- *
- * @example
- * const estimator = fieldExtensionsEstimator();
- */
-export function fieldExtensionsEstimator(): ComplexityEstimator {
-  return ({ field, childComplexity }) => {
-    // Check if field has complexity defined in extensions
-    const extensionComplexity = field.extensions?.complexity;
-
-    if (
-      typeof extensionComplexity === "number" &&
-      Number.isFinite(extensionComplexity)
-    ) {
-      return extensionComplexity;
-    }
-
-    // Check AST node directives for complexity
-    if (field.astNode?.directives) {
-      const complexityDirective = field.astNode.directives.find(
-        (d) => d.name.value === "complexity",
-      );
-
-      if (complexityDirective?.arguments?.[0]) {
-        const arg = complexityDirective.arguments[0];
-        if (arg.value.kind === "IntValue") {
-          const value = Number.parseInt(arg.value.value, 10);
-          if (Number.isFinite(value)) {
-            return value;
-          }
-        }
-      }
-    }
-
-    // Default complexity calculation: 1 + child complexity
-    return 1 + childComplexity;
-  };
 }

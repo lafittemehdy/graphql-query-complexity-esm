@@ -15,5 +15,6 @@ export {
   type ComplexityEstimatorArgs,
   fieldExtensionsEstimator,
   type QueryComplexityOptions,
+  QueryComplexityValidationError,
   simpleEstimator,
 } from "./types.js";

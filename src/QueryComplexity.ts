@@ -1,7 +1,9 @@
 import {
   type ASTVisitor,
+  type DirectiveNode,
   type FieldNode,
   GraphQLError,
+  type GraphQLField,
   GraphQLIncludeDirective,
   GraphQLSkipDirective,
   getArgumentValues,
@@ -53,6 +55,7 @@ export function createQueryComplexityValidator(
   const {
     estimators,
     maximumComplexity,
+    maximumNodeCount = DEFAULT_MAX_NODES,
     onComplete,
     schema,
     variables = {},
@@ -113,11 +116,11 @@ export function createQueryComplexityValidator(
         totalComplexity = result.complexity;
 
         // Check node limit (DoS protection)
-        if (result.nodeCount > DEFAULT_MAX_NODES && !hasReportedError) {
+        if (result.nodeCount > maximumNodeCount && !hasReportedError) {
           hasReportedError = true;
           context.reportError(
             new GraphQLError(
-              `Query exceeds maximum node limit of ${DEFAULT_MAX_NODES}. This query has ${result.nodeCount} nodes.`,
+              `Query exceeds maximum node limit of ${maximumNodeCount}. This query has ${result.nodeCount} nodes.`,
               {
                 extensions: {
                   code: "QUERY_TOO_COMPLEX",
@@ -174,10 +177,10 @@ function calculateComplexity(
   node: SelectionSetNode,
   context: ValidationContext,
   estimators: ComplexityEstimator[],
-  variables: Record<string, any>,
+  variables: Record<string, unknown>,
   currentNodeCount: number,
-  parentType?: any,
-  schema?: any,
+  parentType?: unknown,
+  schema?: unknown,
   visitedFragments?: Set<string>,
 ): ComplexityResult {
   let complexity = 0;
@@ -283,10 +286,10 @@ function calculateFieldComplexity(
   field: FieldNode,
   context: ValidationContext,
   estimators: ComplexityEstimator[],
-  variables: Record<string, any>,
+  variables: Record<string, unknown>,
   currentNodeCount: number,
-  parentType?: any,
-  schema?: any,
+  parentType?: unknown,
+  schema?: unknown,
   visitedFragments?: Set<string>,
 ): ComplexityResult {
   let nodeCount = currentNodeCount;
@@ -298,7 +301,11 @@ function calculateFieldComplexity(
 
   // Get field definition from parent type
   const fieldName = field.name.value;
-  const fields = (parentType as any).getFields?.();
+  const fields = (
+    parentType as {
+      getFields?: () => Record<string, GraphQLField<unknown, unknown>>;
+    }
+  ).getFields?.();
   const fieldDef = fields?.[fieldName];
 
   if (!fieldDef) {
@@ -307,7 +314,7 @@ function calculateFieldComplexity(
 
   // Use getArgumentValues from graphql/execution/values for proper coercion
   // This handles variables, enums, lists, objects, etc.
-  let args: Record<string, any>;
+  let args: Record<string, unknown>;
   try {
     args = getArgumentValues(fieldDef, field, variables);
   } catch (_error) {
@@ -360,8 +367,8 @@ function calculateFieldComplexity(
  * Determine if a node should be skipped based on @skip and @include directives
  */
 function shouldSkipNode(
-  node: { readonly directives?: ReadonlyArray<any> },
-  variables: Record<string, any>,
+  node: { readonly directives?: ReadonlyArray<DirectiveNode> },
+  variables: Record<string, unknown>,
 ): boolean {
   // Check @skip directive
   const skipDirective = getDirectiveValues(

@@ -1,6 +1,10 @@
 import { buildSchema } from "graphql";
 import { describe, expect, it } from "vitest";
-import { getComplexity, simpleEstimator } from "../index.js";
+import {
+  getComplexity,
+  QueryComplexityValidationError,
+  simpleEstimator,
+} from "../index.js";
 
 describe("getComplexity", () => {
   const schema = buildSchema(`
@@ -74,7 +78,7 @@ describe("getComplexity", () => {
       variables: { limit: 10 },
       estimators: [
         ({ args, childComplexity }) => {
-          if (args.limit !== undefined) {
+          if (typeof args.limit === "number") {
             return args.limit * (1 + childComplexity);
           }
           return undefined;
@@ -108,7 +112,7 @@ describe("getComplexity", () => {
     expect(complexity).toBe(2);
   });
 
-  it("should throw error for invalid queries", () => {
+  it("should throw QueryComplexityValidationError for invalid queries", () => {
     expect(() => {
       getComplexity({
         query: `
@@ -121,7 +125,27 @@ describe("getComplexity", () => {
         schema,
         estimators: [simpleEstimator()],
       });
-    }).toThrow("Query validation failed");
+    }).toThrow(QueryComplexityValidationError);
+
+    try {
+      getComplexity({
+        query: `
+          query {
+            nonExistentField
+          }
+        `,
+        schema,
+        estimators: [simpleEstimator()],
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(QueryComplexityValidationError);
+      expect((error as QueryComplexityValidationError).errors).toBeInstanceOf(
+        Array,
+      );
+      expect(
+        (error as QueryComplexityValidationError).errors.length,
+      ).toBeGreaterThan(0);
+    }
   });
 
   it("should handle fragments in complexity calculation", () => {
@@ -196,7 +220,7 @@ describe("getComplexity", () => {
       schema,
       estimators: [
         ({ args, childComplexity }) => {
-          const limit = args.limit ?? 1;
+          const limit = typeof args.limit === "number" ? args.limit : 1;
           return limit * (1 + childComplexity);
         },
       ],

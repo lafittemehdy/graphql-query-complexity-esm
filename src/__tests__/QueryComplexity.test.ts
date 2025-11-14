@@ -1,6 +1,7 @@
 import { buildSchema, parse, validate } from "graphql";
 import { describe, expect, it, vi } from "vitest";
 import {
+  type ComplexityEstimator,
   createQueryComplexityValidator,
   fieldExtensionsEstimator,
   simpleEstimator,
@@ -145,10 +146,10 @@ describe("QueryComplexity", () => {
       `;
 
       const document = parse(query);
-      let receivedArgs: any = null;
+      let receivedArgs: Record<string, unknown> | null = null;
 
       const customEstimator = vi.fn(({ args, childComplexity }) => {
-        if (args.limit !== undefined) {
+        if (typeof args.limit === "number") {
           receivedArgs = args;
           return args.limit * (1 + childComplexity);
         }
@@ -179,10 +180,13 @@ describe("QueryComplexity", () => {
       `;
 
       const document = parse(query);
-      let _receivedArgs: any = null;
+      let _receivedArgs: Record<string, unknown> | null = null;
 
-      const customEstimator = ({ args, childComplexity }: any) => {
-        if (args.limit !== undefined) {
+      const customEstimator: ComplexityEstimator = ({
+        args,
+        childComplexity,
+      }) => {
+        if (typeof args.limit === "number") {
           _receivedArgs = args;
           return args.limit * (1 + childComplexity);
         }
@@ -464,8 +468,11 @@ describe("QueryComplexity", () => {
       const document = parse(query);
       let calculatedComplexity = 0;
 
-      const customEstimator = ({ args, childComplexity }: any) => {
-        if (args.limit !== undefined) {
+      const customEstimator: ComplexityEstimator = ({
+        args,
+        childComplexity,
+      }) => {
+        if (typeof args.limit === "number") {
           // Complexity = limit * (1 + child complexity)
           return args.limit * (1 + childComplexity);
         }
@@ -523,13 +530,13 @@ describe("QueryComplexity", () => {
   });
 
   describe("Node Limit (DoS Protection)", () => {
-    it("should reject queries with too many nodes", () => {
+    it("should reject queries with too many nodes using default limit", () => {
       // Create a wide query instead of deep to avoid stack overflow
       // We need >10,000 nodes. Let's create a query with many aliases:
       // Each aliased field counts as a node
       let query = 'query { user(id: "1") {';
-      // Add 5000 aliases of the id field (each is a separate node)
-      for (let i = 0; i < 5000; i++) {
+      // Add 5001 aliases of the id field (each is a separate node)
+      for (let i = 0; i < 5001; i++) {
         query += ` id${i}: id`;
       }
       // Add 5000 aliases of the name field
@@ -549,7 +556,37 @@ describe("QueryComplexity", () => {
       const errors = validate(schema, document, [complexityRule]);
 
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0].message).toContain("exceeds maximum node limit");
+      expect(errors[0].message).toContain(
+        "exceeds maximum node limit of 10000",
+      );
+    });
+
+    it("should reject queries exceeding custom maximumNodeCount", () => {
+      const query = `
+        query {
+          user(id: "1") {
+            id
+            name
+            posts {
+              id
+            }
+          }
+        }
+      `; // This query has 5 nodes: user, id, name, posts, id
+
+      const document = parse(query);
+
+      const complexityRule = createQueryComplexityValidator({
+        maximumComplexity: 100,
+        maximumNodeCount: 4, // Set a custom low limit
+        estimators: [simpleEstimator()],
+        schema,
+      });
+
+      const errors = validate(schema, document, [complexityRule]);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0].message).toContain("exceeds maximum node limit of 4");
     });
   });
 
@@ -659,6 +696,75 @@ describe("QueryComplexity", () => {
     });
   });
 
+  describe("Abstract Type Handling", () => {
+    it("should correctly calculate complexity for interfaces and unions", () => {
+      const schemaWithAbstractTypes = buildSchema(`
+        interface SearchResult {
+          relevance: Float!
+        }
+
+        type Post implements SearchResult {
+          relevance: Float!
+          id: ID!
+          title: String!
+        }
+
+        type User implements SearchResult {
+          relevance: Float!
+          id: ID!
+          name: String!
+        }
+        
+        union Media = Post | User
+
+        type Query {
+          search(term: String!): [SearchResult!]!
+          media: [Media!]!
+        }
+      `);
+
+      const query = `
+        query {
+          search(term: "graphql") {
+            relevance
+            ... on Post {
+              id
+              title
+            }
+            ... on User {
+              name
+            }
+          }
+          media {
+            ... on Post {
+              id
+            }
+          }
+        }
+      `;
+
+      const document = parse(query);
+      let calculatedComplexity = 0;
+
+      const rule = createQueryComplexityValidator({
+        maximumComplexity: 100,
+        estimators: [simpleEstimator({ defaultComplexity: 1 })],
+        schema: schemaWithAbstractTypes,
+        onComplete: (c) => {
+          calculatedComplexity = c;
+        },
+      });
+
+      const errors = validate(schemaWithAbstractTypes, document, [rule]);
+      expect(errors).toHaveLength(0);
+
+      // search (1) + relevance (1) + id (1) + title (1) + name (1) = 5
+      // media (1) + id (1) = 2
+      // Total = 7
+      expect(calculatedComplexity).toBe(7);
+    });
+  });
+
   describe("Circular Fragment Protection", () => {
     it("should handle circular fragment references without infinite loop", () => {
       // This query has circular fragments but GraphQL validation will catch it
@@ -738,46 +844,225 @@ describe("QueryComplexity", () => {
   });
 
   describe("fieldExtensionsEstimator", () => {
-    it("should use complexity from field extensions", () => {
-      const schemaWithExtensions = buildSchema(`
-        directive @complexity(value: Int!) on FIELD_DEFINITION
+    const schemaWithDirectives = buildSchema(`
+      directive @complexity(
+        value: Int!,
+        multipliers: [String!]
+      ) on FIELD_DEFINITION
 
-        type Query {
-          posts: [Post!]!
-        }
+      type Query {
+        # No directive, should fall back
+        simple: String
 
-        type Post {
-          id: ID!
-          title: String! @complexity(value: 5)
-        }
-      `);
+        # Simple directive
+        posts: [Post!]! @complexity(value: 10)
 
+        # Directive with multiplier
+        users(limit: Int): [User!]! @complexity(value: 2, multipliers: ["limit"])
+        
+        # Directive with multiple multipliers
+        comments(limit: Int, take: Int): [Comment!]! @complexity(value: 5, multipliers: ["limit", "take"])
+      }
+
+      type User {
+        id: ID!
+        name: String!
+      }
+
+      type Post {
+        id: ID!
+        title: String! @complexity(value: 5)
+      }
+
+      type Comment {
+        id: ID!
+      }
+    `);
+
+    it("should use static complexity value from directive", () => {
       const query = `
         query {
           posts {
-            id
-            title
+            id # Fallback to simpleEstimator (1)
+            title # From directive (5)
           }
         }
       `;
-
       const document = parse(query);
       let calculatedComplexity = 0;
 
-      const complexityRule = createQueryComplexityValidator({
+      const rule = createQueryComplexityValidator({
         maximumComplexity: 100,
-        estimators: [fieldExtensionsEstimator(), simpleEstimator()],
-        schema: schemaWithExtensions,
-        onComplete: (complexity) => {
-          calculatedComplexity = complexity;
+        estimators: [
+          fieldExtensionsEstimator(),
+          simpleEstimator({ defaultComplexity: 1 }),
+        ],
+        schema: schemaWithDirectives,
+        onComplete: (c) => {
+          calculatedComplexity = c;
         },
       });
 
-      const errors = validate(schemaWithExtensions, document, [complexityRule]);
-
+      const errors = validate(schemaWithDirectives, document, [rule]);
       expect(errors).toHaveLength(0);
-      // posts (1) + id (1) + title (5) = 7
-      expect(calculatedComplexity).toBe(7);
+      // posts (10) + childComplexity (id 1 + title 5) = 16
+      expect(calculatedComplexity).toBe(16);
+    });
+
+    it("should use single multiplier", () => {
+      const query = `
+        query {
+          users(limit: 10) {
+            id
+            name
+          }
+        }
+      `;
+      const document = parse(query);
+      let calculatedComplexity = 0;
+
+      const rule = createQueryComplexityValidator({
+        maximumComplexity: 100,
+        estimators: [
+          fieldExtensionsEstimator(),
+          simpleEstimator({ defaultComplexity: 1 }),
+        ],
+        schema: schemaWithDirectives,
+        variables: { limit: 10 },
+        onComplete: (c) => {
+          calculatedComplexity = c;
+        },
+      });
+
+      const errors = validate(schemaWithDirectives, document, [rule]);
+      expect(errors).toHaveLength(0);
+      // childComplexity = id (1) + name (1) = 2
+      // users = value (2) + limit (10) * childComplexity (2) = 2 + 20 = 22
+      expect(calculatedComplexity).toBe(22);
+    });
+
+    it("should use multiple multipliers", () => {
+      const query = `
+        query {
+          comments(limit: 10, take: 5) {
+            id
+          }
+        }
+      `;
+      const document = parse(query);
+      let calculatedComplexity = 0;
+
+      const rule = createQueryComplexityValidator({
+        maximumComplexity: 1000,
+        estimators: [
+          fieldExtensionsEstimator(),
+          simpleEstimator({ defaultComplexity: 1 }),
+        ],
+        schema: schemaWithDirectives,
+        variables: { limit: 10, take: 5 },
+        onComplete: (c) => {
+          calculatedComplexity = c;
+        },
+      });
+
+      const errors = validate(schemaWithDirectives, document, [rule]);
+      expect(errors).toHaveLength(0);
+      // childComplexity = id (1)
+      // comments = value (5) + (limit * take) (10 * 5) * childComplexity (1) = 5 + 50 = 55
+      expect(calculatedComplexity).toBe(55);
+    });
+
+    it("should ignore missing multiplier arguments", () => {
+      const query = `
+        query {
+          users { # No limit provided
+            id
+          }
+        }
+      `;
+      const document = parse(query);
+      let calculatedComplexity = 0;
+
+      const rule = createQueryComplexityValidator({
+        maximumComplexity: 100,
+        estimators: [
+          fieldExtensionsEstimator(),
+          simpleEstimator({ defaultComplexity: 1 }),
+        ],
+        schema: schemaWithDirectives,
+        onComplete: (c) => {
+          calculatedComplexity = c;
+        },
+      });
+
+      const errors = validate(schemaWithDirectives, document, [rule]);
+      expect(errors).toHaveLength(0);
+      // childComplexity = id (1)
+      // users = value (2) + multiplier (1) * childComplexity (1) = 3
+      expect(calculatedComplexity).toBe(3);
+    });
+
+    it("should fall back to next estimator if directive is not present", () => {
+      const query = `
+        query {
+          simple
+        }
+      `;
+      const document = parse(query);
+      let calculatedComplexity = 0;
+
+      const rule = createQueryComplexityValidator({
+        maximumComplexity: 100,
+        estimators: [
+          fieldExtensionsEstimator(),
+          simpleEstimator({ defaultComplexity: 5 }), // Fallback
+        ],
+        schema: schemaWithDirectives,
+        onComplete: (c) => {
+          calculatedComplexity = c;
+        },
+      });
+
+      const errors = validate(schemaWithDirectives, document, [rule]);
+      expect(errors).toHaveLength(0);
+      // simple field has no directive, so it uses the simpleEstimator
+      expect(calculatedComplexity).toBe(5);
+    });
+
+    it("should use complexity from programmatic extensions object", () => {
+      const schemaWithProgExt = buildSchema(`
+        type Query {
+          posts: [Post!]!
+        }
+        type Post {
+          id: ID!
+        }
+      `);
+      // @ts-expect-error - We are manually adding extensions for testing
+      schemaWithProgExt.getQueryType().getFields().posts.extensions = {
+        complexity: 20,
+      };
+
+      const query = `query { posts { id } }`;
+      const document = parse(query);
+      let calculatedComplexity = 0;
+
+      const rule = createQueryComplexityValidator({
+        maximumComplexity: 100,
+        estimators: [
+          fieldExtensionsEstimator(),
+          simpleEstimator({ defaultComplexity: 1 }),
+        ],
+        schema: schemaWithProgExt,
+        onComplete: (c) => {
+          calculatedComplexity = c;
+        },
+      });
+
+      const errors = validate(schemaWithProgExt, document, [rule]);
+      expect(errors).toHaveLength(0);
+      // posts (20) + childComplexity (id 1) = 21
+      expect(calculatedComplexity).toBe(21);
     });
   });
 });

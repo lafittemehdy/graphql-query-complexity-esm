@@ -4,6 +4,7 @@ dist/
 
 # Dependencies
 node_modules/
+examples/**/node_modules/
 
 # Package tarballs
 *.tgz
@@ -18,10 +19,6 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
-
-# Development/debug scripts
-test-debug.mjs
-test-source-debug.mjs
 
 # Environment files
 .env

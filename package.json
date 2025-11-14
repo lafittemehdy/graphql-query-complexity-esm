@@ -1,6 +1,6 @@
 {
   "name": "graphql-query-complexity-esm",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "GraphQL query complexity analysis for ESM - prevents resource-intensive queries",
   "keywords": [
     "graphql",
@@ -38,6 +38,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "example": "cd examples/apollo-server && pnpm install && pnpm run build && pnpm start",
     "lint": "biome check --unsafe --write && tsc --noEmit",
     "prepublishOnly": "pnpm run lint && pnpm run build && pnpm test",
     "test": "vitest run",
@@ -50,12 +51,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.4",
-    "@types/node": "^24.10.0",
-    "@vitest/coverage-v8": "^4.0.7",
-    "@vitest/ui": "^4.0.7",
+    "@types/node": "^24.10.1",
+    "@vitest/coverage-v8": "^4.0.8",
+    "@vitest/ui": "^4.0.8",
     "graphql": "^16.12.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.7"
+    "vitest": "^4.0.8"
   },
   "engines": {
     "node": ">=18.0.0"

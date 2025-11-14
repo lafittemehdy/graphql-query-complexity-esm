@@ -6,7 +6,10 @@ import {
   validate,
 } from "graphql";
 import { createQueryComplexityValidator } from "./QueryComplexity.js";
-import type { ComplexityEstimator } from "./types.js";
+import {
+  type ComplexityEstimator,
+  QueryComplexityValidationError,
+} from "./types.js";
 
 /**
  * Options for programmatic complexity calculation
@@ -16,6 +19,14 @@ export interface GetComplexityOptions {
    * Array of complexity estimator functions
    */
   estimators: ComplexityEstimator[];
+
+  /**
+   * Maximum number of nodes to visit.
+   * This is a safeguard against malicious queries that could cause performance issues.
+   *
+   * @default 10000
+   */
+  maximumNodeCount?: number;
 
   /**
    * The GraphQL query (as string or DocumentNode)
@@ -30,7 +41,7 @@ export interface GetComplexityOptions {
   /**
    * Query variables (optional)
    */
-  variables?: Record<string, any>;
+  variables?: Record<string, unknown>;
 }
 
 /**
@@ -45,13 +56,20 @@ export interface GetComplexityOptions {
  *
  * @param options - Configuration options
  * @returns The calculated complexity as a number
- * @throws {Error} If the query has validation errors
+ * @throws {QueryComplexityValidationError} If the query has validation errors
  *
  * @example
  * ```typescript
  * import { getComplexity, simpleEstimator } from 'graphql-query-complexity-esm';
  *
  * const complexity = getComplexity({
+ *   estimators: [
+ *     ({ args, childComplexity }) => {
+ *       const limit = args.limit ?? 10;
+ *       return limit * (1 + childComplexity);
+ *     },
+ *     simpleEstimator({ defaultComplexity: 1 }),
+ *   ],
  *   query: `
  *     query GetUsers($limit: Int!) {
  *       users(limit: $limit) {
@@ -64,20 +82,19 @@ export interface GetComplexityOptions {
  *   `,
  *   schema,
  *   variables: { limit: 10 },
- *   estimators: [
- *     ({ args, childComplexity }) => {
- *       const limit = args.limit ?? 10;
- *       return limit * (1 + childComplexity);
- *     },
- *     simpleEstimator({ defaultComplexity: 1 }),
- *   ],
  * });
  *
  * console.log('Query complexity:', complexity);
  * ```
  */
 export function getComplexity(options: GetComplexityOptions): number {
-  const { estimators, query, schema, variables = {} } = options;
+  const {
+    estimators,
+    maximumNodeCount,
+    query,
+    schema,
+    variables = {},
+  } = options;
 
   // Parse query if it's a string
   const document: DocumentNode =
@@ -90,6 +107,7 @@ export function getComplexity(options: GetComplexityOptions): number {
   const complexityRule = createQueryComplexityValidator({
     estimators,
     maximumComplexity: Number.MAX_SAFE_INTEGER,
+    maximumNodeCount,
     onComplete: (complexity) => {
       calculatedComplexity = complexity;
     },
@@ -103,11 +121,9 @@ export function getComplexity(options: GetComplexityOptions): number {
     complexityRule,
   ]);
 
-  // If there are validation errors, throw
+  // If there are validation errors, throw a custom error
   if (errors.length > 0) {
-    throw new Error(
-      `Query validation failed: ${errors.map((e) => e.message).join(", ")}`,
-    );
+    throw new QueryComplexityValidationError(errors);
   }
 
   return calculatedComplexity;
