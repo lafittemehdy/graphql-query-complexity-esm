@@ -1,111 +1,267 @@
 # graphql-query-complexity-esm
 
-[![npm version](https://img.shields.io/npm/v/graphql-query-complexity-esm.svg)](https://www.npmjs.com/package/graphql-query-complexity-esm)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/test.yml/badge.svg)](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions)
+[![CI](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/ci.yml/badge.svg)](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/graphql-query-complexity-esm)](https://www.npmjs.com/package/graphql-query-complexity-esm)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Protect your GraphQL API by rejecting expensive queries before execution.
+GraphQL APIs are vulnerable to expensive queries — a deeply nested or fan-out query can consume resources far beyond what a simple rate limit catches. `graphql-query-complexity-esm` assigns a cost score to every field and rejects queries that exceed a budget **before a single resolver runs**.
 
-Calculates a complexity score during GraphQL validation and rejects queries that exceed your limit. A lightweight, zero-dependency library that works with any GraphQL server (Apollo, Yoga, etc.) with native ESM and TypeScript support.
+- **Validation rule** (`complexityLimit`) — plug into any GraphQL server's validate pipeline
+- **Programmatic API** (`getComplexity`, `getComplexityBreakdown`) — analyze costs outside validation
+- **Estimator chains** — first estimator returning a finite number wins; return `undefined` to defer
+- **Built-in estimators**: `simpleEstimator` (fixed cost per field) and `fieldExtensionsEstimator` (`@complexity` directive or `field.extensions.complexity`)
+- **Directive-aware**: honors `@skip` and `@include` during traversal
+- **Fragment support**: named fragments, inline fragments, per-path cycle protection
+- **Node-count guard**: configurable `maxNodes` (default `10_000`) prevents AST explosion
+- **Typed error codes**: `ESTIMATOR_ERROR`, `NODE_LIMIT_EXCEEDED`, `QUERY_TOO_COMPLEX`
+- **TypeScript**: ships with `.d.ts` declarations; works with plain JavaScript too
+- **Dual publish**: ESM + CJS from the same package
 
-## Features
+## Requirements
 
-- **Native ESM & TypeScript:** Modern module support with full type safety
-- **Works Anywhere:** Compatible with any GraphQL-compliant server (Apollo, Yoga, etc.)
-- **Flexible Estimation:** Schema directives, custom logic, or simple defaults
-- **Complete GraphQL Support:** Variables, fragments, and directives (`@skip`, `@include`)
-- **Zero Dependencies:** Lightweight and focused (small bundle size)
-- **Well Tested:** Comprehensive test suite
+- Node.js `>=22.0.0`
+- Peer dependency: `graphql ^16.0.0`
 
 ## Installation
 
 ```bash
-npm install graphql-query-complexity-esm
+npm install graphql-query-complexity-esm graphql
 ```
 
-## Quick Start
+```bash
+pnpm add graphql-query-complexity-esm graphql
+```
 
-### Apollo Server Integration
+```bash
+yarn add graphql-query-complexity-esm graphql
+```
 
-This example uses an Apollo Server plugin with the `didResolveOperation` hook. This is the recommended approach because validation rules alone don't have access to request variables, which are needed for accurate complexity calculation.
+## Quickstart
 
-```typescript
-import { ApolloServer } from '@apollo/server';
-import { startStandaloneServer } from '@apollo/server/standalone';
-import { GraphQLError } from 'graphql';
-import {
-  fieldExtensionsEstimator,
-  getComplexity,
-  simpleEstimator,
-} from 'graphql-query-complexity-esm';
+```ts
+import { buildSchema, parse, specifiedRules, validate } from "graphql";
+import { complexityLimit, simpleEstimator } from "graphql-query-complexity-esm";
 
-// Step 1: Define your schema
-const typeDefs = `#graphql
-  directive @complexity(
-    value: Int!
-    multipliers: [String!]
-  ) on FIELD_DEFINITION
-
+const schema = buildSchema(`
   type Query {
-    posts: [Post!]! @complexity(value: 5)
-    users(limit: Int): [User!]! @complexity(value: 2, multipliers: ["limit"])
+    users(limit: Int): [User!]!
   }
-
   type User {
     id: ID!
     name: String!
   }
+`);
 
-  type Post {
-    id: ID!
-    title: String!
-  }
-`;
+const rule = complexityLimit(1000, {
+  estimators: [simpleEstimator({ defaultComplexity: 1 })],
+  variables: {},
+});
 
-// Step 2: Define your resolvers
-const resolvers = {
-  Query: {
-    posts: () => [{ id: '1', title: 'Hello World' }],
-    users: (_: unknown, { limit }: { limit?: number }) =>
-      Array.from({ length: limit || 0 }, (_, i) => ({
-        id: String(i + 1),
-        name: `User ${i + 1}`,
-      })),
+const document = parse(`query { users(limit: 10) { id name } }`);
+const errors = validate(schema, document, [...specifiedRules, rule]);
+
+if (errors.length > 0) {
+  console.error("Query rejected:", errors[0].message);
+}
+```
+
+## API Reference
+
+### `complexityLimit(maxComplexity, options?, callback?)`
+
+Creates a GraphQL validation rule that rejects queries exceeding a maximum complexity score.
+
+`maxComplexity` — required, must be a positive integer.
+
+**Options:**
+
+| Option | Type | Default | Validation |
+|---|---|---|---|
+| `defaultComplexity` | `number` | `1` | Non-negative integer |
+| `estimators` | `ComplexityEstimator[]` | `[simpleEstimator({ defaultComplexity })]` | Non-empty array of functions |
+| `maxNodes` | `number` | `10_000` | Positive integer |
+| `variables` | `Record<string, unknown>` | `{}` | Plain object |
+
+**Callback:**
+
+Optional `ComplexityCallback` — called once on document leave, only when this rule did not report an error. Receives a `ComplexityByOperation` map of operation names to complexity scores.
+
+Anonymous operations receive deterministic keys: the first is `"[anonymous]"`, subsequent ones are `"[anonymous:2]"`, `"[anonymous:3]"`, etc.
+
+```ts
+const rule = complexityLimit(
+  1000,
+  {
+    estimators: [fieldExtensionsEstimator(), simpleEstimator({ defaultComplexity: 1 })],
+    variables: request.variables ?? {},
   },
-};
+  (complexities) => {
+    for (const [name, cost] of Object.entries(complexities)) {
+      console.log(`${name}: ${cost}`);
+    }
+  },
+);
+```
 
-// Step 3: Create and start the server
+### `getComplexity(options)` / `getComplexityBreakdown(options)`
+
+Programmatic complexity calculation outside the server validation flow.
+
+| Option | Type | Required | Default | Validation |
+|---|---|---|---|---|
+| `estimators` | `ComplexityEstimator[]` | yes | — | Non-empty array of functions |
+| `query` | `string \| DocumentNode` | yes | — | String or `DocumentNode` |
+| `schema` | `GraphQLSchema` | yes | — | GraphQL schema instance |
+| `maxNodes` | `number` | no | `10_000` | Positive integer |
+| `variables` | `Record<string, unknown>` | no | `{}` | Plain object |
+
+- `getComplexity()` — returns the highest complexity score among all operations.
+- `getComplexityBreakdown()` — returns a frozen `ComplexityByOperation` map.
+
+Both throw `QueryComplexityValidationError` on parse/validation failures:
+
+```ts
+import {
+  getComplexity,
+  QueryComplexityValidationError,
+  simpleEstimator,
+} from "graphql-query-complexity-esm";
+
+try {
+  const cost = getComplexity({
+    estimators: [simpleEstimator({ defaultComplexity: 1 })],
+    query: `{ users { id name } }`,
+    schema,
+  });
+  console.log("Query cost:", cost);
+} catch (error) {
+  if (error instanceof QueryComplexityValidationError) {
+    // error.errors  — readonly GraphQLError[]
+    // error.message — all error messages joined with newline
+    console.error(error.errors);
+  }
+}
+```
+
+### `fieldExtensionsEstimator()`
+
+Reads cost from `field.extensions.complexity` or the `@complexity` directive.
+
+**Resolution order** (first match wins):
+
+1. `field.extensions.complexity` as a finite number → `value + childComplexity`
+2. `field.extensions.complexity` as `{ value: number, multipliers?: string[] }` → cost formula
+3. `@complexity` directive on the field definition → cost formula
+4. Returns `undefined` (defers to the next estimator)
+
+**Cost formula:**
+
+```
+cost = value + (product of multiplier argument values, default 1) * childComplexity
+```
+
+```ts
+// Programmatic extensions (code-first schemas)
+field.extensions = { complexity: 10 };                              // flat number
+field.extensions = { complexity: { value: 2, multipliers: ["limit"] } }; // with multipliers
+```
+
+```graphql
+# Directive (SDL-first schemas) — add complexityDirectiveTypeDefs to your schema
+type Query {
+  users(limit: Int): [User!]! @complexity(value: 2, multipliers: ["limit"])
+}
+```
+
+### `simpleEstimator(options?)`
+
+Assigns a fixed base cost to every field and adds child complexity on top.
+
+- `defaultComplexity` — base cost per field (default `1`)
+- Formula: `cost + childComplexity`
+
+> **Note:** This estimator does not account for list multipliers. Fields returning lists (e.g. `users(limit: 100)`) receive the same cost as scalar fields. Use `fieldExtensionsEstimator` or a custom estimator for accurate list costing.
+
+### `complexityDirectiveTypeDefs`
+
+SDL string for the `@complexity` directive. Add to your schema type definitions when using directive-based costs with `fieldExtensionsEstimator`:
+
+```graphql
+directive @complexity(value: Int!, multipliers: [String!]) on FIELD_DEFINITION
+```
+
+### `ERROR_CODES`
+
+Frozen object with GraphQL error extension codes:
+
+| Code | Trigger |
+|---|---|
+| `ESTIMATOR_ERROR` | An estimator threw during evaluation |
+| `NODE_LIMIT_EXCEEDED` | Query exceeded `maxNodes` |
+| `QUERY_TOO_COMPLEX` | Query exceeded `maxComplexity` |
+
+### Exports
+
+**Runtime:**
+
+| Export | Description |
+|---|---|
+| `complexityDirectiveTypeDefs` | SDL for the `@complexity` directive |
+| `complexityLimit` | Validation rule factory |
+| `ERROR_CODES` | Error extension codes |
+| `fieldExtensionsEstimator` | Extension/directive-based estimator |
+| `getComplexity` | Programmatic max complexity |
+| `getComplexityBreakdown` | Programmatic per-operation breakdown |
+| `QueryComplexityValidationError` | Error class for validation failures |
+| `simpleEstimator` | Fixed-cost estimator |
+
+**Types:**
+
+| Export | Description |
+|---|---|
+| `ComplexityByOperation` | Operation-name → complexity map |
+| `ComplexityCallback` | Callback signature |
+| `ComplexityEstimator` | Estimator function signature |
+| `ComplexityEstimatorArgs` | Arguments passed to estimators |
+| `ComplexityExtensionConfig` | `{ value, multipliers? }` shape |
+| `ComplexityLimitFunction` | Overloaded `complexityLimit` signature |
+| `ComplexityLimitOptions` | Options for `complexityLimit` |
+| `GetComplexityOptions` | Options for `getComplexity*` |
+
+## Integration Examples
+
+### Apollo Server
+
+Uses `getComplexity()` inside a `didResolveOperation` plugin hook to reject expensive queries before execution. [Full example](https://github.com/lafittemehdy/graphql-query-complexity-esm/blob/master/examples/servers/apollo-server.ts)
+
+```ts
+import { GraphQLError } from "graphql";
+import {
+  fieldExtensionsEstimator,
+  getComplexity,
+  simpleEstimator,
+} from "graphql-query-complexity-esm";
+
+const MAX_COMPLEXITY = 1000;
+
+// Inside ApolloServer config:
 const server = new ApolloServer({
-  typeDefs,
-  resolvers,
   plugins: [
     {
       async requestDidStart({ schema }) {
         return {
-          async didResolveOperation({ request, document }) {
+          async didResolveOperation({ document, request }) {
             const complexity = getComplexity({
+              estimators: [fieldExtensionsEstimator(), simpleEstimator({ defaultComplexity: 1 })],
               query: document,
               schema,
-              estimators: [
-                fieldExtensionsEstimator(),
-                simpleEstimator({ defaultComplexity: 1 }),
-              ],
-              variables: request.variables || {},
+              variables: request.variables ?? {},
             });
 
-            console.log(`Query complexity: ${complexity}`);
-
-            const maximumComplexity = 1000;
-            if (complexity > maximumComplexity) {
+            if (complexity > MAX_COMPLEXITY) {
               throw new GraphQLError(
-                `Query exceeds maximum complexity of ${maximumComplexity}. Actual: ${complexity}.`,
-                {
-                  extensions: {
-                    code: 'QUERY_TOO_COMPLEX',
-                    complexity,
-                    maximumComplexity,
-                  },
-                },
+                `Query complexity ${complexity} exceeds maximum of ${MAX_COMPLEXITY}.`,
+                { extensions: { code: "QUERY_TOO_COMPLEX", complexity, maximumComplexity: MAX_COMPLEXITY } },
               );
             }
           },
@@ -113,282 +269,145 @@ const server = new ApolloServer({
       },
     },
   ],
+  // ...
 });
-
-const { url } = await startStandaloneServer(server, {
-  listen: { port: 4000 },
-});
-
-console.log(`🚀 Server ready at: ${url}`);
 ```
 
-## How It Works
+### GraphQL Yoga
 
-The library calculates a complexity score during GraphQL validation (before execution). Expensive queries are rejected before hitting your business logic.
+Uses `complexityLimit()` as a validation rule via the `onValidate` plugin hook. [Full example](https://github.com/lafittemehdy/graphql-query-complexity-esm/blob/master/examples/servers/yoga-server.ts)
 
-**Process:**
-1. Client sends a query
-2. Server parses and validates the query
-3. **Query complexity calculation runs** (this library)
-4. If validation passes, query executes
-
-The library traverses the query AST using **estimators** to calculate cost. It correctly handles fragments and directives (`@skip`, `@include`), counting only fields that will actually be resolved.
-
----
-
-## Estimation Methods
-
-### The `@complexity` Directive
-
-Define complexity in your schema using the `@complexity` directive:
-
-```graphql
-directive @complexity(
-  value: Int!
-  multipliers: [String!]
-) on FIELD_DEFINITION
-
-type Query {
-  posts: [Post] @complexity(value: 5)
-  users(limit: Int): [User] @complexity(value: 2, multipliers: ["limit"])
-}
-```
-
-- `value`: Base complexity cost
-- `multipliers`: Arguments that scale the cost (e.g., pagination limits)
-
-### Method 1 (Recommended): `fieldExtensionsEstimator`
-
-Reads complexity from the `@complexity` directive. Pair with `simpleEstimator` as a fallback:
-
-```typescript
+```ts
 import {
-  createQueryComplexityValidator,
+  complexityLimit,
   fieldExtensionsEstimator,
   simpleEstimator,
-} from 'graphql-query-complexity-esm';
+} from "graphql-query-complexity-esm";
 
-const complexityValidator = createQueryComplexityValidator({
-  maximumComplexity: 1000,
-  estimators: [
-    fieldExtensionsEstimator(), // Reads @complexity directive
-    simpleEstimator({ defaultComplexity: 1 }), // Fallback for fields without directive
+const MAX_COMPLEXITY = 1000;
+
+// Inside createYoga config:
+const yoga = createYoga({
+  plugins: [
+    {
+      onValidate({ addValidationRule, params }) {
+        const variables = (params.variables as Record<string, unknown> | undefined) ?? {};
+
+        addValidationRule(
+          complexityLimit(MAX_COMPLEXITY, {
+            estimators: [fieldExtensionsEstimator(), simpleEstimator({ defaultComplexity: 1 })],
+            variables,
+          }),
+        );
+      },
+    },
   ],
+  // ...
 });
 ```
 
-### Method 2: Custom Estimator
+## Troubleshooting
 
-Write your own estimator function for dynamic rules or security patterns.
+| Symptom | Cause | Fix |
+|---|---|---|
+| `RangeError: maxComplexity must be a positive integer` | Invalid first argument to `complexityLimit` | Pass a positive integer |
+| `RangeError` / `TypeError` from option validation | Invalid option types | Verify `estimators`, `maxNodes`, `variables` shapes |
+| `QueryComplexityValidationError` thrown | Parse or validation failure in `getComplexity*` | Inspect `error.errors` for GraphQL error details |
+| Extension code `QUERY_TOO_COMPLEX` | Complexity exceeded `maxComplexity` | Increase limit or tune estimators |
+| Extension code `NODE_LIMIT_EXCEEDED` | Query exceeded `maxNodes` | Increase `maxNodes` or reduce query breadth/depth |
+| Extension code `ESTIMATOR_ERROR` | An estimator threw | Guard estimator logic against unexpected arguments |
+| `@skip`/`@include` with missing variables | Directive coercion failure | Nodes are treated as included; pass all required variables |
 
-**Minimal Example:**
+## Development
 
-```typescript
-import type { ComplexityEstimator } from 'graphql-query-complexity-esm';
+<details>
+<summary><strong>Scripts</strong></summary>
 
-const customEstimator: ComplexityEstimator = ({ field }) => {
-  if (field.name === 'expensiveOperation') return 500;
-  return undefined; // Fall through to next estimator
-};
+**Build:**
 
-const estimators = [customEstimator, simpleEstimator({ defaultComplexity: 1 })];
-```
+| Script | Command |
+|---|---|
+| `build` | `tsup` |
+| `dev` | `tsc --watch` |
 
-**Advanced: Automatic Pagination**
+**Lint:**
 
-This estimator detects list fields and applies multipliers automatically:
+| Script | Command |
+|---|---|
+| `lint` | `biome check && tsc --noEmit` |
+| `lint:fix` | `biome check --write && tsc --noEmit` |
 
-```typescript
-const smartPaginationEstimator: ComplexityEstimator = ({ field, args, childComplexity }) => {
-  if (field.name.endsWith('Connection') || field.name.endsWith('s')) {
-    const limit = typeof args.limit === 'number' ? args.limit : 10;
+**Test:**
 
-    // Optional: Security rule
-    if (limit > 100) return 99999;
+| Script | Command |
+|---|---|
+| `test` | `vitest run` |
+| `test:coverage` | `vitest run --coverage` |
+| `test:ui` | `vitest --ui` |
+| `test:watch` | `vitest` |
 
-    return limit * childComplexity;
-  }
-  return undefined;
-};
+**Benchmark:**
 
-const estimators = [smartPaginationEstimator, simpleEstimator({ defaultComplexity: 1 })];
-```
+| Script | Command |
+|---|---|
+| `bench` | `tsx scripts/benchmark.ts` |
+| `bench:check` | `tsx scripts/benchmark-check.ts` |
+| `bench:json` | `tsx scripts/benchmark.ts --json` |
 
-### Method 3: `simpleEstimator`
+**Examples:**
 
-Assigns a fixed complexity to every field. Use as a fallback estimator or for simple schemas with uniform costs.
+| Script | Command |
+|---|---|
+| `example:apollo` | `tsx examples/servers/apollo-server.ts` |
+| `example:yoga` | `tsx examples/servers/yoga-server.ts` |
 
-```typescript
-const estimators = [simpleEstimator({ defaultComplexity: 1 })];
-```
+</details>
 
-**Warning:** Using `simpleEstimator` alone doesn't protect against list-based attacks (e.g., `users(limit: 999999)`).
+<details>
+<summary><strong>Architecture</strong></summary>
 
-## Query Cost Examples
+| Module | Purpose |
+|---|---|
+| `src/index.ts` | Public runtime and type exports |
+| `src/complexity-rule.ts` | `complexityLimit` factory, input validation, callback dispatch, error reporting |
+| `src/complexity-engine.ts` | Iterative traversal engine, estimator execution, fragment processing, node counting |
+| `src/get-complexity.ts` | Programmatic wrapper around `validate()` + `complexityLimit()` |
+| `src/estimators.ts` | `simpleEstimator` and `fieldExtensionsEstimator` |
+| `src/directives.ts` | `complexityDirectiveTypeDefs`, `shouldSkipNode` (`@skip`/`@include`) |
+| `src/constants.ts` | `DEFAULT_MAX_NODES`, `ERROR_CODES` |
+| `src/types.ts` | Public interfaces, types, and `QueryComplexityValidationError` |
+| `src/__tests__/` | Behavior tests for all modules |
 
-**Schema:**
-```graphql
-type Query {
-  users(limit: Int): [User!]! @complexity(value: 1, multipliers: ["limit"])
-  adminSearch: [User!]! @complexity(value: 10)
-}
+**Build output:** `src/index.ts` → `tsup` → `dist/` (ESM + CJS + `.d.ts` + sourcemaps)
 
-type User {
-  id: ID!
-  name: String!
-  posts(last: Int): [Post!]! @complexity(value: 1, multipliers: ["last"])
-}
+</details>
 
-type Post {
-  title: String!
-}
-```
-
-**Estimators:**
-```typescript
-const estimators = [
-  fieldExtensionsEstimator(),
-  simpleEstimator({ defaultComplexity: 1 }), // Fallback for id, name, title
-];
-```
-
-| Query | Calculation | Total |
-| :--- | :--- | :--- |
-| `{ users(limit: 10) { id } }` | `users`: 1 + (10 × `id`:1) = 1 + 10 | **11** |
-| `{ users(limit: 20) { id name } }` | `users`: 1 + (20 × (`id`:1 + `name`:1)) = 1 + 40 | **41** |
-| `{ adminSearch { id } }` | `adminSearch`: 10 + `id`:1 | **11** |
-| `{ users(limit: 5) { posts(last: 3) { title } } }` | `users`: 1 + (5 × (`posts`: 1 + (3 × `title`:1))) = 1 + (5 × 4) | **21** |
-
-## Calculate Complexity Programmatically
-
-Calculate query complexity without running a server. Useful for testing, analysis, or custom validation.
-
-The `getComplexity` function returns the query complexity score or throws `QueryComplexityValidationError` for invalid queries (syntax errors, undefined fields).
-
-**Note:** `buildSchema` works with the `@complexity` directive for `fieldExtensionsEstimator`. For more advanced directive features, use `makeExecutableSchema` from `@graphql-tools/schema`.
-
-```typescript
-import {
-  getComplexity,
-  fieldExtensionsEstimator,
-  simpleEstimator,
-  QueryComplexityValidationError,
-} from 'graphql-query-complexity-esm';
-import { buildSchema } from 'graphql';
-
-const schema = buildSchema(`
-  directive @complexity(value: Int!, multipliers: [String!]) on FIELD_DEFINITION
-
-  type Query {
-    users(limit: Int): [User] @complexity(value: 1, multipliers: ["limit"])
-  }
-
-  type User {
-    id: ID
-    posts(last: Int): [Post] @complexity(value: 1, multipliers: ["last"])
-  }
-
-  type Post {
-    title: String
-  }
-`);
-
-const query = `
-  query ($limit: Int!, $last: Int!) {
-    users(limit: $limit) {
-      id
-      posts(last: $last) {
-        title
-      }
-    }
-  }
-`;
-
-try {
-  const complexity = getComplexity({
-    query, // String or DocumentNode
-    schema,
-    variables: { limit: 10, last: 5 },
-    estimators: [
-      fieldExtensionsEstimator(),
-      simpleEstimator({ defaultComplexity: 1 }),
-    ],
-  });
-
-  // Calculation: users: 1 + (10 * (id:1 + posts:1 + (5 * title:1))) = 71
-  console.log(complexity); // 71
-} catch (error) {
-  if (error instanceof QueryComplexityValidationError) {
-    console.error('Query is invalid:', error.errors);
-  }
-}
-```
-
-## API Reference
-
-### `createQueryComplexityValidator(options)`
-
-Creates a GraphQL validation rule.
-
-- `maximumComplexity` (number, **required**) - Maximum allowed complexity
-- `estimators` (ComplexityEstimator[], **required**) - Array of estimator functions
-- `schema` (GraphQLSchema, optional) - Schema (inferred from context if not provided)
-- `variables` (Record<string, unknown>, optional) - Query variables
-- `onComplete` ((complexity: number) => void, optional) - Callback fired after calculation
-- `maximumNodeCount` (number, optional, default: 10000) - Safeguard against extremely large queries
-
-### `getComplexity(options)`
-
-Calculates query complexity programmatically.
-
-- `query` (string | DocumentNode, **required**) - Query string or AST
-- `schema` (GraphQLSchema, **required**) - GraphQL schema
-- `estimators` (ComplexityEstimator[], **required**) - Array of estimator functions
-- `variables` (Record<string, unknown>, optional) - Query variables
-- `maximumNodeCount` (number, optional, default: 10000) - Safeguard against extremely large queries
-
-**Returns:** `number` - Calculated complexity score
-
-**Throws:** `QueryComplexityValidationError` - For invalid queries (syntax errors, undefined fields)
-
-```typescript
-import { getComplexity, QueryComplexityValidationError } from 'graphql-query-complexity-esm';
-
-try {
-  const complexity = getComplexity({ query, schema, estimators });
-} catch (e) {
-  if (e instanceof QueryComplexityValidationError) {
-    console.log('Validation errors:', e.errors);
-  }
-}
-```
-
-## Requirements
-
-- Node.js 18+
-- GraphQL 16+
-
-## Examples
-
-A complete TypeScript example with Apollo Server is available in the [`examples/apollo-server`](examples/apollo-server) directory.
-
-**Quick start:**
+<details>
+<summary><strong>Benchmark</strong></summary>
 
 ```bash
-# From the root directory
-pnpm run example
+pnpm bench
 ```
 
-The example includes:
-- Full TypeScript setup with proper type definitions
-- Complete Apollo Server integration with `didResolveOperation` hook
-- Schema with `@complexity` directive
-- Working resolvers
-- Test queries with complexity calculations
-- Error handling examples
+**CLI arguments** (`scripts/benchmark.ts`):
 
-See the [Apollo Server Example README](examples/apollo-server/README.md) for detailed instructions.
+| Argument | Description |
+|---|---|
+| `--json` | Output results as JSON |
+| `--output <path>` | Write results to file |
+| `--scale <number>` | Iteration scale factor |
+| `--warmup <integer>` | Number of warmup runs |
+
+**Regression check** (`pnpm bench:check`) **env vars:**
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `BENCHMARK_THRESHOLDS_PATH` | `benchmarks/thresholds.json` | Path to thresholds JSON |
+| `BENCH_ITERATIONS_SCALE` | Thresholds file value, then `0.45` | Iteration scale override |
+| `BENCH_WARMUP_RUNS` | Thresholds file value, then `30` | Warmup runs override |
+
+</details>
 
 ## License
 
-MIT License. Reality’s open source. Do what you want, but remember that every line of code ripples through the universe. Try not to be the bug in existence.
+MIT

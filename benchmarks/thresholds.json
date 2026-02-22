@@ -1,0 +1,12 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"iterationsScale": 0.45,
+	"warmupRuns": 30,
+	"maxMsPerRun": {
+		"small": 6,
+		"medium": 6,
+		"deep": 9,
+		"wide": 15,
+		"heavy": 6
+	}
+}

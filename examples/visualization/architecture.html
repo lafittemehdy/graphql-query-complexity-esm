@@ -1,0 +1,2714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>graphql-query-complexity-esm &mdash; Query Complexity</title>
+	<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23030303'/><circle cx='16' cy='16' r='8' fill='none' stroke='%23AAAAAA' stroke-width='2'/><circle cx='16' cy='16' r='3' fill='%23D4A24C'/></svg>">
+	<style>
+
+		/* ================================================================
+		   CSS Variables
+		   ================================================================ */
+		:root {
+			--bg: #030303;
+			--bg-header: #0A0A0A;
+			--bg-surface: rgba(14, 14, 14, 0.92);
+			--bg-elevated: rgba(28, 28, 28, 0.6);
+			--border: rgba(255, 255, 255, 0.07);
+			--border-hover: rgba(255, 255, 255, 0.16);
+			--font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+			--text: #E0E0E0;
+			--text-secondary: #888888;
+			--text-muted: #666666;
+			--radius: 12px;
+			--node-w: 220px;
+			--header-h: 56px;
+			--app-vh: 100vh;
+		}
+
+		@supports (height: 100dvh) {
+			:root { --app-vh: 100dvh; }
+		}
+
+		/* ================================================================
+		   Reset & Base
+		   ================================================================ */
+		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+		body {
+			background-color: var(--bg);
+			color: var(--text);
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+			height: var(--app-vh);
+			min-height: 100svh;
+			overflow: hidden;
+			width: 100vw;
+		}
+
+		body::after {
+			content: '';
+			filter: url(#grain);
+			height: 300%;
+			left: -50%;
+			mix-blend-mode: overlay;
+			opacity: 0.055;
+			pointer-events: none;
+			position: fixed;
+			top: -50%;
+			width: 300%;
+			z-index: 9999;
+		}
+
+		/* ================================================================
+		   Header
+		   ================================================================ */
+		#header {
+			align-items: center;
+			background: var(--bg-header);
+			border-bottom: 1px solid var(--border);
+			display: flex;
+			gap: 10px;
+			height: var(--header-h);
+			isolation: isolate;
+			justify-content: space-between;
+			padding: 0 32px;
+			position: fixed;
+			top: 0;
+			width: 100%;
+			z-index: 140;
+		}
+
+		.header-left {
+			align-items: baseline;
+			display: flex;
+			flex: 1 1 auto;
+			gap: 16px;
+			min-width: 0;
+		}
+
+		.header-left h1 {
+			color: var(--text);
+			font-size: 13px;
+			font-weight: 600;
+			letter-spacing: 0.04em;
+			max-width: 100%;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			text-transform: uppercase;
+			white-space: nowrap;
+		}
+
+		.header-left h1 a {
+			border-bottom: 1px solid transparent;
+			color: inherit;
+			text-decoration: none;
+			transition: border-color 0.15s ease, color 0.15s ease;
+		}
+
+		.header-left h1 a:hover,
+		.header-left h1 a:focus-visible {
+			border-bottom-color: rgba(212, 162, 76, 0.75);
+			color: #F2F2F2;
+			outline: none;
+		}
+
+		.header-center {
+			align-items: center;
+			display: flex;
+			gap: 8px;
+			position: relative;
+			z-index: 2;
+		}
+
+		.filter-chip {
+			align-items: center;
+			background: transparent;
+			border: 1px solid var(--border);
+			border-radius: 16px;
+			color: var(--text-secondary);
+			cursor: pointer;
+			display: inline-flex;
+			font-family: inherit;
+			font-size: 12px;
+			gap: 6px;
+			padding: 7px 14px 7px 12px;
+			position: relative;
+			transition: all 0.2s ease;
+			z-index: 1;
+		}
+
+		.filter-chip:hover {
+			background: var(--bg-elevated);
+			border-color: var(--border-hover);
+		}
+
+		.filter-chip.active {
+			background: color-mix(in srgb, var(--mod-color) 12%, var(--bg-elevated));
+			border-color: var(--mod-color);
+			color: var(--text);
+			z-index: 3;
+		}
+
+		.filter-chip.dimmed-chip { opacity: 0.35; }
+
+		.chip-dot {
+			border-radius: 50%;
+			display: inline-block;
+			flex-shrink: 0;
+			height: 8px;
+			width: 8px;
+		}
+
+		.chip-label { line-height: 1; }
+
+		.chip-key {
+			color: var(--text-muted);
+			font-size: 0.7em;
+			font-weight: 600;
+			margin-left: 3px;
+			opacity: 0.8;
+		}
+
+		.header-right {
+			align-items: center;
+			display: flex;
+			flex: 0 0 auto;
+			gap: 8px;
+			margin-left: auto;
+			min-width: 0;
+			position: relative;
+			z-index: 3;
+		}
+
+		.header-search-wrap {
+			align-items: center;
+			display: flex;
+			min-width: 0;
+			position: relative;
+			width: min(42vw, 190px);
+		}
+
+		.header-search {
+			background: var(--bg-elevated);
+			border: 1px solid var(--border);
+			border-radius: 2px;
+			color: var(--text);
+			font-family: var(--font-mono);
+			font-size: 10px;
+			letter-spacing: 0.04em;
+			outline: none;
+			padding: 4px 30px 4px 10px;
+			transition: border-color 0.15s ease;
+			width: 170px;
+		}
+
+		.header-search::placeholder { color: var(--text-muted); }
+		.header-search:focus { border-color: rgba(212, 162, 76, 0.4); }
+		.header-search.has-match { border-color: rgba(128, 184, 88, 0.5); }
+		.header-search.no-match { border-color: rgba(200, 104, 96, 0.6); }
+
+		.header-search-clear {
+			align-items: center;
+			background: transparent;
+			border: none;
+			color: var(--text-muted);
+			cursor: pointer;
+			display: inline-flex;
+			font-size: 14px;
+			height: 20px;
+			justify-content: center;
+			opacity: 0;
+			padding: 0;
+			pointer-events: none;
+			position: absolute;
+			right: 6px;
+			transition: color 0.15s ease, opacity 0.15s ease;
+			width: 20px;
+		}
+
+		.header-search-wrap.has-value .header-search-clear {
+			opacity: 0.85;
+			pointer-events: auto;
+		}
+
+		.header-search-clear:hover { color: var(--text); }
+
+		.header-search-meta {
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+			font-size: 9px;
+			min-width: 54px;
+			opacity: 0;
+			text-align: right;
+			transition: opacity 0.15s ease;
+			white-space: nowrap;
+		}
+
+		.header-right.has-search-meta .header-search-meta { opacity: 0.9; }
+
+		.header-btn {
+			background: transparent;
+			border: 1px solid var(--border);
+			border-radius: 16px;
+			color: var(--text-secondary);
+			cursor: pointer;
+			font-family: inherit;
+			font-size: 11px;
+			padding: 5px 12px;
+			transition: all 0.15s ease;
+			white-space: nowrap;
+		}
+
+		.header-btn:hover {
+			background: var(--bg-elevated);
+			border-color: var(--border-hover);
+			color: var(--text);
+		}
+
+		/* ================================================================
+		   Canvas & Viewport
+		   ================================================================ */
+		#canvas {
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cline x1='100' y1='88' x2='100' y2='112' stroke='%23161616' stroke-width='0.8'/%3E%3Cline x1='88' y1='100' x2='112' y2='100' stroke='%23161616' stroke-width='0.8'/%3E%3C/svg%3E");
+			background-position: center center;
+			background-size: 200px 200px;
+			cursor: grab;
+			height: calc(var(--app-vh) - var(--header-h));
+			overflow: hidden;
+			position: relative;
+			top: var(--header-h);
+			touch-action: none;
+			width: 100%;
+		}
+
+		#canvas::before {
+			background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.4));
+			content: '';
+			height: 100%;
+			left: 0;
+			pointer-events: none;
+			position: absolute;
+			top: 0;
+			width: 100%;
+			z-index: 1;
+		}
+
+		#canvas.grabbing { cursor: grabbing; }
+		#canvas.zoom-far .node,
+		#canvas.zoom-far .node:hover,
+		#canvas.zoom-far .node.selected,
+		#canvas.zoom-far .node.search-match,
+		#canvas.zoom-far .node.trace-active { box-shadow: none; }
+
+		#viewport {
+			height: 0;
+			position: absolute;
+			transform-origin: 0 0;
+			width: 0;
+		}
+
+		#connections {
+			height: 100%;
+			left: 0;
+			overflow: visible;
+			pointer-events: none;
+			position: absolute;
+			top: 0;
+			width: 100%;
+			z-index: 0;
+		}
+
+		/* ================================================================
+		   Node Cards
+		   ================================================================ */
+		.node {
+			backdrop-filter: blur(12px);
+			background: var(--bg-surface);
+			border: 1px solid color-mix(in srgb, var(--mod-color, #666666) 15%, transparent);
+			border-radius: var(--radius);
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+			cursor: pointer;
+			opacity: 0;
+			position: absolute;
+			transform: translateY(10px);
+			transition: border-color 0.15s ease, box-shadow 0.2s ease, opacity 0.3s ease, transform 0.3s ease;
+			width: var(--node-w);
+			z-index: 2;
+		}
+
+		.node.visible {
+			opacity: 1;
+			transform: translateY(0);
+		}
+
+		.node:hover {
+			border-color: color-mix(in srgb, var(--mod-color, #666666) 35%, transparent);
+			box-shadow:
+				0 4px 20px rgba(0, 0, 0, 0.3),
+				0 0 16px color-mix(in srgb, var(--mod-color, #666666) 8%, transparent);
+		}
+
+		.node.selected {
+			border-color: color-mix(in srgb, var(--mod-color, #666666) 60%, transparent);
+			box-shadow:
+				0 4px 20px rgba(0, 0, 0, 0.3),
+				0 0 0 3px color-mix(in srgb, var(--mod-color, #666666) 25%, transparent),
+				0 0 30px color-mix(in srgb, var(--mod-color, #666666) 20%, transparent);
+			z-index: 10;
+		}
+
+		.node.dimmed { opacity: 0.18; }
+		.node.search-dimmed { opacity: 0.12; }
+
+		.node.search-match {
+			border-color: color-mix(in srgb, var(--mod-color, #666666) 50%, transparent);
+			box-shadow:
+				0 4px 20px rgba(0, 0, 0, 0.3),
+				0 0 0 1px color-mix(in srgb, var(--mod-color, #666666) 30%, transparent),
+				0 0 24px color-mix(in srgb, var(--mod-color, #666666) 20%, transparent);
+		}
+
+		.node.trace-active {
+			border-color: rgba(128, 184, 88, 0.5);
+			box-shadow:
+				0 4px 20px rgba(0, 0, 0, 0.3),
+				0 0 0 2px rgba(128, 184, 88, 0.25),
+				0 0 20px rgba(128, 184, 88, 0.15);
+			z-index: 8;
+		}
+
+		.node.trace-violation {
+			animation: violation-pulse 0.8s ease-in-out 2;
+			border-color: rgba(200, 104, 96, 0.6);
+			z-index: 8;
+		}
+
+		@keyframes violation-pulse {
+			0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 0 2px rgba(200,104,96,0.3), 0 0 24px rgba(200,104,96,0.15); }
+			50% { box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 0 3px rgba(200,104,96,0.5), 0 0 36px rgba(200,104,96,0.25); }
+		}
+
+		.node-title {
+			align-items: center;
+			background: linear-gradient(135deg,
+				color-mix(in srgb, var(--mod-color, #666666) 10%, var(--bg-surface)),
+				var(--bg-surface));
+			border-bottom: 1px solid color-mix(in srgb, var(--mod-color, #666666) 10%, transparent);
+			border-radius: var(--radius) var(--radius) 0 0;
+			display: flex;
+			gap: 8px;
+			height: 40px;
+			padding: 0 14px;
+		}
+
+		.node-module {
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+			font-size: 8px;
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+		}
+
+		.node-name {
+			color: var(--text);
+			flex: 1;
+			font-size: 13px;
+			font-weight: 600;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.node-cost-badge {
+			background: transparent;
+			border: 1px solid color-mix(in srgb, var(--mod-color, #666666) 40%, transparent);
+			border-radius: 2px;
+			color: color-mix(in srgb, var(--mod-color, #666666) 80%, var(--text));
+			flex-shrink: 0;
+			font-family: var(--font-mono);
+			font-size: 9px;
+			font-weight: 700;
+			letter-spacing: 0.04em;
+			padding: 1px 6px;
+		}
+
+		.node-body { padding: 8px 14px; }
+
+		.node-field-row {
+			align-items: center;
+			display: flex;
+			gap: 8px;
+			padding: 3px 0;
+		}
+
+		.field-row-label {
+			color: var(--text-muted);
+			flex-shrink: 0;
+			font-family: var(--font-mono);
+			font-size: 9px;
+			letter-spacing: 0.03em;
+			text-transform: uppercase;
+			width: 36px;
+		}
+
+		.field-row-value {
+			color: var(--text-secondary);
+			font-family: var(--font-mono);
+			font-size: 11px;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.node-multiplier .field-row-value {
+			color: #D88A62;
+			font-weight: 600;
+		}
+
+		.node-pad { height: 6px; }
+
+		/* ================================================================
+		   Connection Lines
+		   ================================================================ */
+		.connection-group { pointer-events: auto; }
+
+		.glow-line {
+			fill: none;
+			opacity: 0.07;
+			stroke-linecap: round;
+			stroke-width: 6;
+			transition: opacity 0.2s ease;
+		}
+
+		.main-line {
+			fill: none;
+			opacity: 0.25;
+			stroke-linecap: round;
+			stroke-width: 1.5;
+			transition: opacity 0.2s ease, stroke 0.2s ease;
+		}
+
+		.animated-line {
+			animation: dash-flow 14s linear infinite;
+			fill: none;
+			opacity: 0;
+			stroke-dasharray: 6 4;
+			stroke-linecap: round;
+			stroke-width: 1.5;
+			transition: opacity 0.2s ease;
+		}
+
+		.connection-group:hover .glow-line { opacity: 0.2; }
+		.connection-group:hover .main-line { opacity: 0.7; }
+		.connection-group:hover .animated-line { opacity: 0.5; }
+		.connection-group.highlighted .glow-line { opacity: 0.2; }
+		.connection-group.highlighted .main-line { opacity: 0.7; }
+		.connection-group.highlighted .animated-line { opacity: 0.5; }
+		.connection-group.dimmed .glow-line,
+		.connection-group.dimmed .main-line,
+		.connection-group.dimmed .animated-line { opacity: 0.03; }
+		.connection-group.search-dimmed .glow-line,
+		.connection-group.search-dimmed .main-line,
+		.connection-group.search-dimmed .animated-line { opacity: 0.08; }
+		.connection-group.trace-active .main-line { opacity: 0.8; stroke: #80B858; }
+		.connection-group.trace-active .glow-line { opacity: 0.3; stroke: #80B858; }
+		.connection-group.trace-violation .main-line { opacity: 0.9; stroke: #C86860; }
+		.connection-group.trace-violation .glow-line { opacity: 0.4; stroke: #C86860; }
+
+		@keyframes dash-flow { to { stroke-dashoffset: -100; } }
+
+		/* ================================================================
+		   Connection Label
+		   ================================================================ */
+		.connection-label {
+			background: rgba(14, 14, 14, 0.92);
+			border: 1px solid var(--border);
+			border-radius: 4px;
+			color: var(--text-secondary);
+			display: none;
+			font-family: var(--font-mono);
+			font-size: 10px;
+			padding: 4px 8px;
+			pointer-events: none;
+			position: absolute;
+			white-space: nowrap;
+			z-index: 120;
+		}
+
+		.connection-label.visible { display: block; }
+
+		/* ================================================================
+		   Detail Panel
+		   ================================================================ */
+		#detail-panel {
+			background: var(--bg-header);
+			border-left: 1px solid var(--border);
+			bottom: 0;
+			overflow-y: auto;
+			position: fixed;
+			right: 0;
+			scrollbar-color: var(--border-hover) transparent;
+			scrollbar-width: thin;
+			top: var(--header-h);
+			transform: translateX(100%);
+			transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+			width: 360px;
+			z-index: 130;
+		}
+
+		#detail-panel.open { transform: translateX(0); }
+
+		#panel-back,
+		#panel-close {
+			background: transparent;
+			border: 1px solid var(--border);
+			border-radius: 50%;
+			color: var(--text-secondary);
+			cursor: pointer;
+			font-size: 14px;
+			height: 28px;
+			line-height: 1;
+			position: absolute;
+			top: 12px;
+			transition: all 0.15s ease;
+			width: 28px;
+			z-index: 5;
+		}
+
+		#panel-back { left: 12px; }
+		#panel-close { right: 12px; }
+		#panel-back:hover, #panel-close:hover {
+			background: var(--bg-elevated);
+			border-color: var(--border-hover);
+			color: var(--text);
+		}
+
+		.panel-breadcrumbs {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px;
+			padding: 12px 50px;
+		}
+
+		.panel-breadcrumb {
+			background: transparent;
+			border: 1px solid var(--border);
+			border-radius: 2px;
+			color: var(--text-muted);
+			cursor: pointer;
+			font-family: var(--font-mono);
+			font-size: 9px;
+			padding: 2px 6px;
+			transition: all 0.15s ease;
+		}
+
+		.panel-breadcrumb:hover {
+			border-color: var(--border-hover);
+			color: var(--text-secondary);
+		}
+
+		.panel-breadcrumb-sep {
+			color: var(--text-muted);
+			font-size: 9px;
+			line-height: 20px;
+			opacity: 0.5;
+		}
+
+		#panel-content { padding: 8px 20px 24px; }
+
+		.panel-title {
+			color: var(--text);
+			font-size: 18px;
+			font-weight: 700;
+			margin-bottom: 4px;
+		}
+
+		.panel-meta {
+			align-items: center;
+			display: flex;
+			gap: 8px;
+			margin-bottom: 16px;
+		}
+
+		.panel-category-badge {
+			border: 1px solid;
+			border-radius: 2px;
+			font-family: var(--font-mono);
+			font-size: 8px;
+			font-weight: 700;
+			letter-spacing: 0.06em;
+			padding: 2px 6px;
+			text-transform: uppercase;
+		}
+
+		.panel-type-info {
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+			font-size: 10px;
+		}
+
+		.panel-section {
+			border-top: 1px solid var(--border);
+			margin-top: 14px;
+			padding-top: 10px;
+		}
+
+		.panel-section-label {
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+			font-size: 9px;
+			letter-spacing: 0.05em;
+			margin-bottom: 8px;
+			text-transform: uppercase;
+		}
+
+		.panel-formula {
+			color: var(--text);
+			font-family: var(--font-mono);
+			font-size: 13px;
+			font-weight: 600;
+			margin-bottom: 6px;
+		}
+
+		.panel-detail-row {
+			color: var(--text-secondary);
+			display: flex;
+			font-family: var(--font-mono);
+			font-size: 11px;
+			gap: 8px;
+			padding: 2px 0;
+		}
+
+		.panel-detail-label {
+			color: var(--text-muted);
+			flex-shrink: 0;
+			width: 80px;
+		}
+
+		.panel-detail-value {
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.panel-cost-bar-wrap {
+			background: #1A1A1A;
+			border-radius: 3px;
+			height: 6px;
+			margin-top: 6px;
+			overflow: hidden;
+			width: 100%;
+		}
+
+		.panel-cost-bar {
+			background: var(--mod-color, #D4A24C);
+			border-radius: 3px;
+			height: 100%;
+			transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+			width: 0;
+		}
+
+		.panel-child-list {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+		}
+
+		.panel-child-link {
+			background: transparent;
+			border: none;
+			border-radius: 4px;
+			color: var(--text-secondary);
+			cursor: pointer;
+			font-family: var(--font-mono);
+			font-size: 11px;
+			padding: 4px 8px;
+			text-align: left;
+			transition: all 0.15s ease;
+		}
+
+		.panel-child-link:hover {
+			background: var(--bg-elevated);
+			color: var(--text);
+		}
+
+		/* ================================================================
+		   Query Lab (left panel)
+		   ================================================================ */
+		#query-lab {
+			background: #080808;
+			border-right: 1px solid #1A1A1A;
+			bottom: 0;
+			display: flex;
+			flex-direction: column;
+			left: 0;
+			position: fixed;
+			top: var(--header-h);
+			width: 360px;
+			z-index: 110;
+		}
+
+		.lab-section {
+			border-bottom: 1px solid #1A1A1A;
+			padding: 12px 16px;
+		}
+
+		.lab-presets {
+			display: grid;
+			gap: 6px;
+			grid-template-columns: repeat(4, 1fr);
+		}
+
+		.lab-segment-btn {
+			background: transparent;
+			border: 1px solid var(--border);
+			border-radius: 16px;
+			color: var(--text-secondary);
+			cursor: pointer;
+			font-family: inherit;
+			font-size: 11px;
+			padding: 6px 0;
+			text-align: center;
+			transition: all 0.15s ease;
+		}
+
+		.lab-segment-btn:hover {
+			background: var(--bg-elevated);
+			border-color: var(--border-hover);
+		}
+
+		.lab-segment-btn.active {
+			border-color: #D4A24C;
+			color: var(--text);
+		}
+
+		.lab-editor {
+			background: transparent;
+			border: none;
+			color: #CCC;
+			font-family: var(--font-mono);
+			font-size: 11px;
+			line-height: 1.6;
+			min-height: 120px;
+			outline: none;
+			resize: vertical;
+			scrollbar-color: var(--border-hover) transparent;
+			scrollbar-width: thin;
+			width: 100%;
+		}
+
+		.lab-editor::placeholder { color: #333; font-style: italic; }
+
+		/* Control Deck */
+		.lab-control-deck {
+			align-items: center;
+			background: #101010;
+			border-bottom: 1px solid #1A1A1A;
+			display: flex;
+			height: 56px;
+			padding: 0;
+		}
+
+		.deck-module {
+			align-items: center;
+			border-right: 1px solid #222;
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+			justify-content: center;
+			padding: 6px 12px;
+		}
+
+		.deck-module:last-child { border-right: none; }
+
+		.deck-label {
+			color: #444;
+			font-family: var(--font-mono);
+			font-size: 8px;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+		}
+
+		.deck-stepper {
+			align-items: center;
+			background: #000;
+			border: 1px solid #222;
+			border-radius: 4px;
+			display: inline-flex;
+			height: 24px;
+			overflow: hidden;
+		}
+
+		.deck-stepper button {
+			background: #111;
+			border: none;
+			color: #666;
+			cursor: pointer;
+			font-family: var(--font-mono);
+			font-size: 12px;
+			height: 24px;
+			transition: all 0.1s ease;
+			width: 20px;
+		}
+
+		.deck-stepper button:hover { background: #222; color: #FFF; }
+
+		.deck-stepper input {
+			background: transparent;
+			border: none;
+			color: #FFF;
+			font-family: var(--font-mono);
+			font-size: 11px;
+			outline: none;
+			text-align: center;
+			width: 52px;
+		}
+
+		.deck-stepper input::-webkit-inner-spin-button,
+		.deck-stepper input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+		/* Pressure Gauge */
+		.pressure-meter {
+			align-items: center;
+			display: flex;
+			gap: 6px;
+			min-width: 80px;
+		}
+
+		.pressure-track {
+			background: #1A1A1A;
+			border-radius: 3px;
+			flex: 1;
+			height: 6px;
+			overflow: hidden;
+			position: relative;
+		}
+
+		.pressure-fill {
+			background: #444;
+			border-radius: 3px;
+			height: 100%;
+			transition: background 0.3s ease, box-shadow 0.3s ease, width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+			width: 0;
+		}
+
+		.pressure-fill.safe { background: #80B858; box-shadow: 0 0 6px rgba(128, 184, 88, 0.2); }
+		.pressure-fill.crit { background: #C86860; box-shadow: 0 0 6px rgba(200, 104, 96, 0.2); }
+
+		.pressure-value {
+			color: #FFF;
+			font-family: var(--font-mono);
+			font-size: 10px;
+			font-weight: 600;
+			min-width: 24px;
+			text-align: right;
+		}
+
+		/* Action Buttons */
+		.deck-actions {
+			align-items: center;
+			display: flex;
+			gap: 6px;
+			margin-left: auto;
+			padding: 0 12px;
+		}
+
+		.deck-btn {
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-family: var(--font-mono);
+			font-size: 10px;
+			font-weight: 700;
+			letter-spacing: 0.06em;
+			padding: 6px 14px;
+			text-transform: uppercase;
+			transition: all 0.15s ease;
+		}
+
+		.deck-btn.primary {
+			background: #D4A24C;
+			color: #000;
+		}
+
+		.deck-btn.primary:hover {
+			background: #F0BE6C;
+			box-shadow: 0 0 15px rgba(212, 162, 76, 0.4);
+		}
+
+		.deck-btn.ghost {
+			background: transparent;
+			border: 1px solid #333;
+			color: #666;
+		}
+
+		.deck-btn.ghost:hover {
+			border-color: #666;
+			color: #FFF;
+		}
+
+		/* Trace Console */
+		.lab-trace-section {
+			background: #080808;
+			display: flex;
+			flex: 1;
+			flex-direction: column;
+			min-height: 0;
+		}
+
+		.console-header {
+			align-items: center;
+			background: #0C0C0C;
+			border-bottom: 1px solid #1A1A1A;
+			display: flex;
+			gap: 8px;
+			height: 32px;
+			padding: 0 12px;
+		}
+
+		.status-dot {
+			background: #333;
+			border-radius: 50%;
+			flex-shrink: 0;
+			height: 6px;
+			transition: all 0.3s ease;
+			width: 6px;
+		}
+
+		.status-dot.active { background: #80B858; box-shadow: 0 0 6px #80B858; }
+		.status-dot.blocked { background: #C86860; box-shadow: 0 0 6px #C86860; }
+
+		.console-title {
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+			font-size: 9px;
+			letter-spacing: 0.05em;
+			text-transform: uppercase;
+		}
+
+		.console-playback {
+			align-items: center;
+			display: flex;
+			gap: 6px;
+			margin-left: auto;
+			opacity: 0;
+			transition: opacity 0.2s ease;
+		}
+
+		.console-playback.visible { opacity: 1; }
+
+		.console-counter {
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+			font-size: 10px;
+			font-variant-numeric: tabular-nums;
+			min-width: 40px;
+			text-align: right;
+		}
+
+		.console-scrub {
+			-webkit-appearance: none;
+			appearance: none;
+			background: transparent;
+			height: 12px;
+			width: 60px;
+		}
+
+		.console-scrub::-webkit-slider-runnable-track {
+			background: #333;
+			border-radius: 1px;
+			height: 2px;
+		}
+
+		.console-scrub::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			background: #D4A24C;
+			border: none;
+			border-radius: 1px;
+			cursor: pointer;
+			height: 8px;
+			margin-top: -3px;
+			width: 3px;
+		}
+
+		.console-scrub::-moz-range-track {
+			background: #333;
+			border: none;
+			border-radius: 1px;
+			height: 2px;
+		}
+
+		.console-scrub::-moz-range-thumb {
+			background: #D4A24C;
+			border: none;
+			border-radius: 1px;
+			cursor: pointer;
+			height: 8px;
+			width: 3px;
+		}
+
+		.console-toggle {
+			background: transparent;
+			border: 1px solid #333;
+			border-radius: 2px;
+			color: #666;
+			cursor: pointer;
+			font-size: 10px;
+			height: 18px;
+			line-height: 1;
+			padding: 0;
+			transition: all 0.15s ease;
+			width: 18px;
+		}
+
+		.console-toggle:hover { border-color: #666; color: #FFF; }
+
+		.console-output {
+			flex: 1;
+			min-height: 0;
+			overflow-y: auto;
+			scrollbar-color: var(--border-hover) transparent;
+			scrollbar-width: thin;
+		}
+
+		/* Trace Steps */
+		.lab-trace-step {
+			border-left: 2px solid transparent;
+			cursor: pointer;
+			display: grid;
+			grid-template-columns: 20px 1fr 16px;
+			opacity: 0.4;
+			padding: 2px 12px;
+			transition: background 0.15s ease, opacity 0.15s ease;
+		}
+
+		.lab-trace-step:hover { background: rgba(255, 255, 255, 0.02); opacity: 0.8; }
+
+		.lab-trace-step.is-current {
+			background: #0E0E0E;
+			border-left-color: #D4A24C;
+			opacity: 1;
+		}
+
+		.step-num {
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+			font-size: 9px;
+			font-variant-numeric: tabular-nums;
+			line-height: 18px;
+		}
+
+		.step-body { min-width: 0; }
+
+		.step-fn {
+			color: var(--text);
+			font-family: var(--font-mono);
+			font-size: 10px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.step-id {
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+			font-size: 8px;
+		}
+
+		.step-state {
+			border: 1px solid transparent;
+			border-radius: 2px;
+			display: inline-block;
+			font-family: var(--font-mono);
+			font-size: 7px;
+			font-weight: 700;
+			letter-spacing: 0.04em;
+			margin-left: 4px;
+			padding: 0 3px;
+			text-transform: uppercase;
+			vertical-align: middle;
+		}
+
+		.step-icon {
+			font-size: 10px;
+			line-height: 18px;
+			text-align: center;
+		}
+
+		.lab-trace-step.ok .step-icon { color: #80B858; }
+		.lab-trace-step.ok .step-state { border-color: rgba(128, 184, 88, 0.35); color: #80B858; }
+		.lab-trace-step.violation .step-fn { color: #C86860; }
+		.lab-trace-step.violation .step-icon { color: #C86860; }
+		.lab-trace-step.violation .step-state { border-color: rgba(200, 104, 96, 0.35); color: #C86860; }
+		.lab-trace-step.post .step-fn { color: #D4A24C; }
+		.lab-trace-step.post .step-icon { color: #D4A24C; }
+		.lab-trace-step.post .step-state { border-color: rgba(212, 162, 76, 0.35); color: #D4A24C; }
+		.lab-trace-step.setup .step-fn { color: var(--text-muted); }
+		.lab-trace-step.setup .step-icon { color: var(--text-muted); }
+
+		@keyframes step-fade-in {
+			from { opacity: 0; transform: translateY(4px); }
+			to { opacity: 0.4; }
+		}
+
+		.lab-trace-step { animation: step-fade-in 0.2s ease forwards; }
+
+		/* Result Badge */
+		.result-badge {
+			background: #000;
+			border: 1px solid #333;
+			border-radius: 4px;
+			font-family: var(--font-mono);
+			font-size: 10px;
+			font-weight: 700;
+			letter-spacing: 0.04em;
+			margin: 12px auto;
+			padding: 8px 16px;
+			text-align: center;
+			width: fit-content;
+		}
+
+		.result-badge.pass { border-color: #80B858; color: #80B858; }
+		.result-badge.fail { border-color: #C86860; color: #C86860; }
+
+		/* Lab resize handle */
+		.lab-resize-handle {
+			bottom: 0;
+			cursor: col-resize;
+			position: absolute;
+			right: -3px;
+			top: 0;
+			transition: background 0.15s ease;
+			width: 6px;
+			z-index: 120;
+		}
+
+		.lab-resize-handle:hover,
+		.lab-resize-handle.active { background: var(--border-hover); }
+
+		/* ================================================================
+		   Scrollbar
+		   ================================================================ */
+		::-webkit-scrollbar { width: 6px; }
+		::-webkit-scrollbar-track { background: transparent; }
+		::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 3px; }
+
+		/* ================================================================
+		   Focus
+		   ================================================================ */
+		:focus-visible { outline: 2px solid rgba(212, 162, 76, 0.6); outline-offset: 2px; }
+
+		/* ================================================================
+		   Responsive
+		   ================================================================ */
+		@media (max-width: 1024px) {
+			#query-lab { width: 300px; }
+			.header-search { width: 130px; }
+		}
+
+		@media (max-width: 768px) {
+			:root { --header-h: 84px; }
+
+			#header {
+				flex-wrap: wrap;
+				height: auto;
+				min-height: var(--header-h);
+				padding: 10px 16px;
+			}
+
+			.header-center {
+				order: 3;
+				overflow-x: auto;
+				scrollbar-width: none;
+				width: 100%;
+			}
+
+			.header-center::-webkit-scrollbar { display: none; }
+
+			#query-lab {
+				border-radius: 14px 14px 0 0;
+				border-right: none;
+				border-top: 1px solid var(--border);
+				bottom: 0;
+				height: 55vh;
+				left: 0;
+				top: auto;
+				transform: translateY(calc(100% - 44px));
+				transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+				width: 100%;
+			}
+
+			#query-lab.expanded { transform: translateY(0); }
+
+			#detail-panel {
+				border-left: none;
+				border-radius: 14px 14px 0 0;
+				border-top: 1px solid var(--border);
+				bottom: 0;
+				height: 60vh;
+				left: 0;
+				right: auto;
+				top: auto;
+				transform: translateY(100%);
+				width: 100%;
+			}
+
+			#detail-panel.open { transform: translateY(0); }
+		}
+
+		@media (max-width: 480px) {
+			:root { --header-h: 86px; }
+			.lab-presets { grid-template-columns: repeat(2, 1fr); }
+		}
+
+	</style>
+</head>
+<body>
+
+	<!-- Grain filter -->
+	<svg style="position:absolute;width:0;height:0" aria-hidden="true">
+		<filter id="grain">
+			<feTurbulence baseFrequency="0.55" numOctaves="4" stitchTiles="stitch" type="fractalNoise"/>
+			<feColorMatrix type="saturate" values="0"/>
+		</filter>
+	</svg>
+
+	<!-- Header -->
+	<header id="header">
+		<div class="header-left">
+			<h1><a href="https://github.com/lafittemehdy/graphql-query-complexity-esm" target="_blank" rel="noopener">graphql-query-complexity-esm</a></h1>
+		</div>
+		<div class="header-center" id="category-filters"></div>
+		<div class="header-right" id="header-right">
+			<div class="header-search-wrap" id="search-wrap">
+				<input type="text" class="header-search" id="node-search" placeholder="Search fields...">
+				<button type="button" class="header-search-clear" id="node-search-clear">&times;</button>
+			</div>
+			<span class="header-search-meta" id="node-search-meta"></span>
+			<button type="button" class="header-btn" id="fit-btn">Fit All</button>
+		</div>
+	</header>
+
+	<!-- Canvas -->
+	<main id="canvas">
+		<div id="viewport">
+			<svg id="connections" role="img" aria-label="Field connections">
+				<defs>
+					<filter id="glow">
+						<feGaussianBlur in="SourceGraphic" stdDeviation="3"/>
+					</filter>
+				</defs>
+			</svg>
+		</div>
+	</main>
+
+	<!-- Detail Panel -->
+	<aside id="detail-panel">
+		<button type="button" id="panel-back">&#8592;</button>
+		<button type="button" id="panel-close">&times;</button>
+		<div class="panel-breadcrumbs" id="panel-breadcrumbs"></div>
+		<div id="panel-content"></div>
+	</aside>
+
+	<!-- Query Lab -->
+	<div id="query-lab"></div>
+
+	<!-- Connection Label -->
+	<div class="connection-label" id="connection-label"></div>
+
+	<!-- Import Map -->
+	<script type="importmap">
+		{ "imports": { "graphql": "https://esm.sh/graphql@16" } }
+	</script>
+
+	<!-- Main Script -->
+	<script type="module">
+		import { buildSchema, GraphQLList, GraphQLNonNull, GraphQLObjectType, getNamedType, isCompositeType, isLeafType, Kind, parse } from "graphql";
+
+		// ================================================================
+		// Constants
+		// ================================================================
+
+		const CATEGORIES = Object.freeze({
+			composite:  { color: "#D4A24C", label: "Composite" },
+			leaf:       { color: "#80B858", label: "Leaf" },
+			multiplied: { color: "#D88A62", label: "Multiplied" },
+			root:       { color: "#888888", label: "Root" },
+		});
+
+		const CATEGORY_KEYS = Object.keys(CATEGORIES);
+
+		const FIELD_NODE_W = 220;
+		const COL_START_X = 80;
+		const COL_H_GAP = 120;
+		const COL_V_GAP = 20;
+
+		// ================================================================
+		// Schema
+		// ================================================================
+
+		const SCHEMA_SDL = `
+			type Query {
+				user(id: ID!): User
+				users(first: Int, last: Int): [User!]!
+			}
+			type User {
+				avatar: String
+				createdAt: String
+				email: String!
+				followers(first: Int, last: Int): [User!]!
+				id: ID!
+				name: String!
+				posts(first: Int, last: Int): [Post!]!
+				role: String
+			}
+			type Post {
+				body: String
+				comments(first: Int): [Comment!]!
+				id: ID!
+				publishedAt: String
+				tags: [String!]
+				title: String!
+			}
+			type Comment {
+				author: User!
+				createdAt: String
+				likes: Int
+				text: String!
+			}
+		`;
+
+		const schema = buildSchema(SCHEMA_SDL);
+
+		// Attach field-extensions complexity config to paginated list fields
+		const MULTIPLIER_FIELDS = [
+			["Query",   "users"],
+			["User",    "followers"],
+			["User",    "posts"],
+			["Post",    "comments"],
+		];
+
+		for (const [typeName, fieldName] of MULTIPLIER_FIELDS) {
+			const type = schema.getType(typeName);
+			if (type instanceof GraphQLObjectType) {
+				const field = type.getFields()[fieldName];
+				if (field) field.extensions = { complexity: { value: 1, multipliers: ["first", "last"] } };
+			}
+		}
+
+		// ================================================================
+		// Presets
+		// ================================================================
+
+		const PRESETS = {
+			simple: {
+				label: "Simple",
+				maxComplexity: 1000,
+				query: `query GetUser {\n  user(id: "1") {\n    name\n    email\n  }\n}`,
+			},
+			nested: {
+				label: "Nested",
+				maxComplexity: 1000,
+				query: `query Nested {\n  users {\n    posts {\n      title\n      comments {\n        text\n        author {\n          name\n        }\n      }\n    }\n  }\n}`,
+			},
+			heavy: {
+				label: "Heavy",
+				maxComplexity: 100,
+				query: `query DashboardData {\n  users(first: 20) {\n    id\n    name\n    email\n    avatar\n    role\n    createdAt\n    posts(last: 10) {\n      id\n      title\n      body\n      tags\n      publishedAt\n      comments(first: 5) {\n        text\n        likes\n        createdAt\n        author {\n          name\n          email\n          avatar\n        }\n      }\n    }\n    followers(first: 10) {\n      id\n      name\n      avatar\n    }\n  }\n}`,
+			},
+			fragment: {
+				label: "Fragment",
+				maxComplexity: 1000,
+				query: `query WithFragment {\n  user(id: "1") {\n    ...UserFields\n  }\n}\n\nfragment UserFields on User {\n  name\n  email\n  posts {\n    title\n  }\n}`,
+			},
+		};
+
+		const PRESET_KEYS = Object.keys(PRESETS);
+
+		// ================================================================
+		// Utility: resolve return type string
+		// ================================================================
+
+		function typeToString(gqlType) {
+			if (!gqlType) return "?";
+			if (gqlType instanceof GraphQLNonNull) return `${typeToString(gqlType.ofType)}!`;
+			if (gqlType instanceof GraphQLList) return `[${typeToString(gqlType.ofType)}]`;
+			return gqlType.name || String(gqlType);
+		}
+
+		// ================================================================
+		// Query Analysis Engine
+		// ================================================================
+
+		function analyzeQuery(queryString, maxComplexity) {
+			let doc;
+			try { doc = parse(queryString); } catch (e) { return { error: e.message }; }
+
+			const fragments = {};
+			for (const def of doc.definitions) {
+				if (def.kind === Kind.FRAGMENT_DEFINITION) fragments[def.name.value] = def;
+			}
+
+			const fieldNodes = [];
+			const connections = [];
+			const steps = [];
+			let nodeCounter = 0;
+
+			steps.push({ cost: null, fieldId: null, formula: null, kind: "setup", label: "Parse query", runningTotal: 0, violation: false });
+
+			// Process each operation
+			for (const def of doc.definitions) {
+				if (def.kind !== Kind.OPERATION_DEFINITION) continue;
+
+				const rootType = schema.getQueryType();
+				if (!rootType) continue;
+
+				const rootId = `__root_${nodeCounter++}`;
+				steps.push({ cost: null, fieldId: rootId, formula: null, kind: "setup", label: `Resolve root \u2192 ${rootType.name}`, runningTotal: 0, violation: false });
+
+				const childResult = processSelectionSet(def.selectionSet, rootType, rootId, 1, fragments, new Set());
+
+				const rootNode = {
+					_h: 0,
+					alias: null,
+					args: [],
+					baseCost: 0,
+					category: "root",
+					childComplexity: childResult.cost,
+					childIds: childResult.childIds,
+					col: 0,
+					estimatorUsed: null,
+					fieldName: rootType.name,
+					id: rootId,
+					isLeaf: false,
+					multiplier: 1,
+					parentId: null,
+					parentType: "Operation",
+					returnType: rootType.name,
+					totalCost: childResult.cost,
+					x: 0,
+					y: 0,
+				};
+
+				fieldNodes.push(rootNode);
+
+				// Generate steps in post-order (leaves first)
+				const ordered = postOrder(rootNode, fieldNodes);
+				let running = 0;
+
+				for (const fn of ordered) {
+					if (fn.category === "root") continue;
+					running += fn.totalCost;
+					const formula = buildFormula(fn);
+					steps.push({
+						cost: fn.totalCost,
+						fieldId: fn.id,
+						formula,
+						kind: "field",
+						label: `Estimate ${fn.fieldName}: ${formula} = ${fn.totalCost}`,
+						runningTotal: running,
+						violation: false,
+					});
+				}
+
+				const totalComplexity = rootNode.totalCost;
+				const isViolation = totalComplexity > maxComplexity;
+				steps.push({
+					cost: totalComplexity,
+					fieldId: rootId,
+					formula: null,
+					kind: "result",
+					label: isViolation
+						? `Total: ${totalComplexity} \u2014 BLOCKED (limit ${maxComplexity})`
+						: `Total: ${totalComplexity} \u2014 PASS`,
+					runningTotal: totalComplexity,
+					violation: isViolation,
+				});
+			}
+
+			return { complexity: fieldNodes.find(n => n.category === "root")?.totalCost ?? 0, connections, fieldNodes, steps };
+
+			// --- Inner helpers ---
+
+			function processSelectionSet(selectionSet, parentType, parentId, col, frags, visitedFrags) {
+				if (!selectionSet) return { childIds: [], cost: 0 };
+
+				let totalCost = 0;
+				const childIds = [];
+
+				for (const sel of selectionSet.selections) {
+					if (sel.kind === Kind.FIELD) {
+						const name = sel.name.value;
+						if (name === "__typename") continue;
+
+						const fieldDef = parentType instanceof GraphQLObjectType ? parentType.getFields()[name] : null;
+						const rawType = fieldDef?.type;
+						const namedType = rawType ? getNamedType(rawType) : null;
+						const returnTypeStr = rawType ? typeToString(rawType) : "?";
+						const leaf = !sel.selectionSet || !namedType || isLeafType(namedType);
+
+						// Extract args
+						const args = [];
+						if (sel.arguments) {
+							for (const a of sel.arguments) {
+								const val = a.value;
+								let v = null;
+								if (val.kind === Kind.INT) v = parseInt(val.value, 10);
+								else if (val.kind === Kind.FLOAT) v = parseFloat(val.value);
+								else if (val.kind === Kind.STRING) v = val.value;
+								else if (val.kind === Kind.BOOLEAN) v = val.value;
+								else if (val.kind === Kind.ENUM) v = val.value;
+								args.push({ name: a.name.value, value: v });
+							}
+						}
+
+						// Recurse for children
+						let childResult = { childIds: [], cost: 0 };
+						if (!leaf && namedType && isCompositeType(namedType)) {
+							childResult = processSelectionSet(sel.selectionSet, namedType, null, col + 1, frags, visitedFrags);
+						}
+
+						// Estimate cost
+						const ext = fieldDef?.extensions?.complexity;
+						let baseCost = 1;
+						let multiplier = 1;
+						let estimatorUsed = "simple";
+
+						if (ext && typeof ext === "object" && ext.multipliers) {
+							for (const mName of ext.multipliers) {
+								const arg = args.find(a => a.name === mName);
+								if (arg && typeof arg.value === "number" && Number.isFinite(arg.value)) {
+									multiplier *= arg.value;
+								}
+							}
+							if (multiplier > 1) {
+								baseCost = ext.value ?? 1;
+								estimatorUsed = "fieldExtensions";
+							}
+						}
+
+						const fieldCost = leaf
+							? baseCost
+							: baseCost + multiplier * childResult.cost;
+
+						const category = leaf
+							? "leaf"
+							: multiplier > 1
+								? "multiplied"
+								: "composite";
+
+						const id = `${name}_${nodeCounter++}`;
+						const fn = {
+							_h: 0,
+							alias: sel.alias?.value ?? null,
+							args,
+							baseCost,
+							category,
+							childComplexity: childResult.cost,
+							childIds: childResult.childIds,
+							col,
+							estimatorUsed,
+							fieldName: name,
+							id,
+							isLeaf: leaf,
+							multiplier,
+							parentId,
+							parentType: parentType.name || "?",
+							returnType: returnTypeStr,
+							totalCost: fieldCost,
+							x: 0,
+							y: 0,
+						};
+
+						fieldNodes.push(fn);
+						childIds.push(id);
+						if (parentId) connections.push({ from: parentId, to: id });
+
+						// Update children's parentId
+						for (const cid of childResult.childIds) {
+							const child = fieldNodes.find(n => n.id === cid);
+							if (child && !child.parentId) {
+								child.parentId = id;
+								connections.push({ from: id, to: cid });
+							}
+						}
+
+						totalCost += fieldCost;
+
+					} else if (sel.kind === Kind.FRAGMENT_SPREAD) {
+						const fragName = sel.name.value;
+						if (visitedFrags.has(fragName)) continue;
+						visitedFrags.add(fragName);
+						const frag = frags[fragName];
+						if (!frag) continue;
+						const fragType = schema.getType(frag.typeCondition.name.value);
+						if (!fragType || !isCompositeType(fragType)) continue;
+						const fragResult = processSelectionSet(frag.selectionSet, fragType, parentId, col, frags, visitedFrags);
+						totalCost += fragResult.cost;
+						childIds.push(...fragResult.childIds);
+
+					} else if (sel.kind === Kind.INLINE_FRAGMENT) {
+						const fragType = sel.typeCondition
+							? schema.getType(sel.typeCondition.name.value)
+							: parentType;
+						if (!fragType || !isCompositeType(fragType)) continue;
+						const fragResult = processSelectionSet(sel.selectionSet, fragType, parentId, col, frags, visitedFrags);
+						totalCost += fragResult.cost;
+						childIds.push(...fragResult.childIds);
+					}
+				}
+
+				return { childIds, cost: totalCost };
+			}
+		}
+
+		function postOrder(rootNode, allNodes) {
+			const nodeMap = new Map(allNodes.map(n => [n.id, n]));
+			const result = [];
+			function walk(node) {
+				for (const cid of node.childIds) {
+					const child = nodeMap.get(cid);
+					if (child) walk(child);
+				}
+				result.push(node);
+			}
+			walk(rootNode);
+			return result;
+		}
+
+		function buildFormula(fn) {
+			if (fn.isLeaf) return String(fn.baseCost);
+			if (fn.multiplier > 1) return `${fn.baseCost} + ${fn.multiplier} \u00d7 ${fn.childComplexity}`;
+			return `${fn.baseCost} + ${fn.childComplexity}`;
+		}
+
+		// ================================================================
+		// Canvas Layout
+		// ================================================================
+
+		function computeLayout(fieldNodes) {
+			const byCol = {};
+			for (const fn of fieldNodes) {
+				if (!byCol[fn.col]) byCol[fn.col] = [];
+				byCol[fn.col].push(fn);
+			}
+
+			// Compute node heights
+			for (const fn of fieldNodes) {
+				let h = 40 + 8; // title + pad
+				h += 24; // return type row
+				if (fn.args.length > 0) h += 20;
+				if (fn.multiplier > 1) h += 20;
+				fn._h = h;
+			}
+
+			// Compute y positions per column
+			const maxCol = Math.max(...fieldNodes.map(n => n.col));
+			let globalMaxH = 0;
+
+			for (let c = 0; c <= maxCol; c++) {
+				const col = byCol[c] || [];
+				const totalH = col.reduce((s, n) => s + n._h, 0) + Math.max(0, col.length - 1) * COL_V_GAP;
+				if (totalH > globalMaxH) globalMaxH = totalH;
+			}
+
+			for (let c = 0; c <= maxCol; c++) {
+				const col = byCol[c] || [];
+				const totalH = col.reduce((s, n) => s + n._h, 0) + Math.max(0, col.length - 1) * COL_V_GAP;
+				let y = (globalMaxH - totalH) / 2;
+				for (const fn of col) {
+					fn.x = COL_START_X + c * (FIELD_NODE_W + COL_H_GAP);
+					fn.y = y;
+					y += fn._h + COL_V_GAP;
+				}
+			}
+
+			// Parent y-centering pass
+			const nodeMap = new Map(fieldNodes.map(n => [n.id, n]));
+			for (let c = maxCol - 1; c >= 0; c--) {
+				const col = byCol[c] || [];
+				for (const fn of col) {
+					if (fn.childIds.length === 0) continue;
+					const children = fn.childIds.map(id => nodeMap.get(id)).filter(Boolean);
+					if (children.length === 0) continue;
+					const minY = Math.min(...children.map(ch => ch.y));
+					const maxY = Math.max(...children.map(ch => ch.y + ch._h));
+					const childCenter = (minY + maxY) / 2;
+					fn.y = childCenter - fn._h / 2;
+				}
+			}
+		}
+
+		// ================================================================
+		// Canvas Rendering
+		// ================================================================
+
+		let renderedFieldNodes = [];
+		let renderedConnections = [];
+		const fieldNodeElements = {};
+
+		function clearCanvas() {
+			const viewport = document.getElementById("viewport");
+			for (const el of viewport.querySelectorAll(".node")) el.remove();
+			document.getElementById("connections").innerHTML = `<defs><filter id="glow"><feGaussianBlur in="SourceGraphic" stdDeviation="3"/></filter></defs>`;
+			for (const key of Object.keys(fieldNodeElements)) delete fieldNodeElements[key];
+		}
+
+		function renderFieldNodes(fieldNodes) {
+			const viewport = document.getElementById("viewport");
+			for (const fn of fieldNodes) {
+				const el = document.createElement("div");
+				el.className = "node";
+				el.dataset.id = fn.id;
+				el.dataset.category = fn.category;
+				el.style.cssText = `--mod-color:${CATEGORIES[fn.category].color};left:${fn.x}px;top:${fn.y}px`;
+
+				let body = `<div class="node-field-row"><span class="field-row-label">type</span><span class="field-row-value">${esc(fn.returnType)}</span></div>`;
+				if (fn.args.length > 0) {
+					const argsStr = fn.args.map(a => `${a.name}: ${a.value ?? "?"}`).join(", ");
+					body += `<div class="node-field-row"><span class="field-row-label">args</span><span class="field-row-value">${esc(argsStr)}</span></div>`;
+				}
+				if (fn.multiplier > 1) {
+					body += `<div class="node-field-row node-multiplier"><span class="field-row-label">mult</span><span class="field-row-value">\u00d7${fn.multiplier}</span></div>`;
+				}
+
+				el.innerHTML = `
+					<div class="node-title">
+						<span class="node-module">${esc(fn.parentType)}</span>
+						<span class="node-name">${esc(fn.alias || fn.fieldName)}</span>
+						<span class="node-cost-badge">${fn.category === "root" ? `total: ${fn.totalCost}` : `cost: ${fn.totalCost}`}</span>
+					</div>
+					<div class="node-body">${body}</div>
+					<div class="node-pad"></div>`;
+
+				viewport.appendChild(el);
+				fieldNodeElements[fn.id] = el;
+
+				// Stagger entrance
+				const delay = fn.col * 50 + (Object.keys(fieldNodeElements).length % 8) * 25;
+				setTimeout(() => el.classList.add("visible"), delay);
+			}
+		}
+
+		function renderConnections(conns, fieldNodes) {
+			const svg = document.getElementById("connections");
+			const nodeMap = new Map(fieldNodes.map(n => [n.id, n]));
+
+			for (const conn of conns) {
+				const from = nodeMap.get(conn.from);
+				const to = nodeMap.get(conn.to);
+				if (!from || !to) continue;
+
+				const x1 = from.x + FIELD_NODE_W;
+				const y1 = from.y + from._h / 2;
+				const x2 = to.x;
+				const y2 = to.y + to._h / 2;
+
+				const d = bezierPath(x1, y1, x2, y2);
+				const color = CATEGORIES[from.category]?.color || "#666";
+
+				const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+				g.classList.add("connection-group");
+				g.dataset.from = conn.from;
+				g.dataset.to = conn.to;
+
+				g.innerHTML = `
+					<path class="glow-line" d="${d}" stroke="${color}" filter="url(#glow)"/>
+					<path class="main-line" d="${d}" stroke="${color}"/>
+					<path class="animated-line" d="${d}" stroke="${color}"/>`;
+
+				svg.appendChild(g);
+			}
+		}
+
+		function bezierPath(x1, y1, x2, y2) {
+			const dx = Math.abs(x2 - x1) * 0.42;
+			return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+		}
+
+		function esc(s) {
+			return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+		}
+
+		// ================================================================
+		// Detail Panel
+		// ================================================================
+
+		let panelHistory = [];
+		let selectedNodeId = null;
+
+		function showDetailPanel(fieldNode) {
+			const panel = document.getElementById("detail-panel");
+			const content = document.getElementById("panel-content");
+			const cat = CATEGORIES[fieldNode.category];
+			const totalQueryCost = renderedFieldNodes.find(n => n.category === "root")?.totalCost || 1;
+			const share = Math.round((fieldNode.totalCost / totalQueryCost) * 100);
+
+			let html = `<div class="panel-title">${esc(fieldNode.alias || fieldNode.fieldName)}</div>`;
+			html += `<div class="panel-meta">`;
+			html += `<span class="panel-category-badge" style="border-color:${cat.color};color:${cat.color}">${cat.label}</span>`;
+			html += `<span class="panel-type-info">${esc(fieldNode.parentType)}.${esc(fieldNode.fieldName)}</span>`;
+			html += `</div>`;
+
+			// Cost breakdown
+			html += `<div class="panel-section"><div class="panel-section-label">Cost Breakdown</div>`;
+			if (fieldNode.category !== "root") {
+				html += `<div class="panel-formula">${esc(buildFormula(fieldNode))} = ${fieldNode.totalCost}</div>`;
+				html += `<div class="panel-detail-row"><span class="panel-detail-label">estimator</span><span class="panel-detail-value">${fieldNode.estimatorUsed === "fieldExtensions" ? "fieldExtensionsEstimator" : "simpleEstimator"}</span></div>`;
+				html += `<div class="panel-detail-row"><span class="panel-detail-label">base</span><span class="panel-detail-value">${fieldNode.baseCost}</span></div>`;
+				if (fieldNode.multiplier > 1) {
+					html += `<div class="panel-detail-row"><span class="panel-detail-label">multiplier</span><span class="panel-detail-value">\u00d7${fieldNode.multiplier}</span></div>`;
+				}
+				if (!fieldNode.isLeaf) {
+					html += `<div class="panel-detail-row"><span class="panel-detail-label">children</span><span class="panel-detail-value">${fieldNode.childComplexity}</span></div>`;
+				}
+			} else {
+				html += `<div class="panel-formula">total = ${fieldNode.totalCost}</div>`;
+			}
+			html += `</div>`;
+
+			// Cost share
+			html += `<div class="panel-section"><div class="panel-section-label">Cost Share</div>`;
+			html += `<div class="panel-detail-row"><span class="panel-detail-label">share</span><span class="panel-detail-value">${share}% of query cost</span></div>`;
+			html += `<div class="panel-cost-bar-wrap"><div class="panel-cost-bar" style="--mod-color:${cat.color};width:${Math.min(100, share)}%"></div></div>`;
+			html += `</div>`;
+
+			// Field info
+			html += `<div class="panel-section"><div class="panel-section-label">Field Info</div>`;
+			html += `<div class="panel-detail-row"><span class="panel-detail-label">return</span><span class="panel-detail-value">${esc(fieldNode.returnType)}</span></div>`;
+			html += `<div class="panel-detail-row"><span class="panel-detail-label">parent</span><span class="panel-detail-value">${esc(fieldNode.parentType)}</span></div>`;
+			if (fieldNode.args.length > 0) {
+				const argsStr = fieldNode.args.map(a => `${a.name}: ${a.value ?? "?"}`).join(", ");
+				html += `<div class="panel-detail-row"><span class="panel-detail-label">args</span><span class="panel-detail-value">${esc(argsStr)}</span></div>`;
+			}
+			html += `</div>`;
+
+			// Child fields
+			if (fieldNode.childIds.length > 0) {
+				html += `<div class="panel-section"><div class="panel-section-label">Child Fields</div><div class="panel-child-list">`;
+				const nodeMap = new Map(renderedFieldNodes.map(n => [n.id, n]));
+				for (const cid of fieldNode.childIds) {
+					const child = nodeMap.get(cid);
+					if (child) {
+						html += `<button class="panel-child-link" data-id="${child.id}">${esc(child.fieldName)} <span style="color:var(--text-muted);font-size:9px">cost: ${child.totalCost}</span></button>`;
+					}
+				}
+				html += `</div></div>`;
+			}
+
+			content.innerHTML = html;
+			panel.classList.add("open");
+
+			// Wire child links
+			for (const btn of content.querySelectorAll(".panel-child-link")) {
+				btn.addEventListener("click", () => {
+					panelHistory.push(fieldNode.id);
+					selectNode(btn.dataset.id);
+				});
+			}
+
+			renderBreadcrumbs();
+		}
+
+		function renderBreadcrumbs() {
+			const bc = document.getElementById("panel-breadcrumbs");
+			if (panelHistory.length === 0) { bc.innerHTML = ""; return; }
+			const nodeMap = new Map(renderedFieldNodes.map(n => [n.id, n]));
+			let html = "";
+			for (let i = 0; i < panelHistory.length; i++) {
+				const fn = nodeMap.get(panelHistory[i]);
+				if (!fn) continue;
+				html += `<button class="panel-breadcrumb" data-idx="${i}">${esc(fn.fieldName)}</button>`;
+				html += `<span class="panel-breadcrumb-sep">\u203a</span>`;
+			}
+			bc.innerHTML = html;
+			for (const btn of bc.querySelectorAll(".panel-breadcrumb")) {
+				btn.addEventListener("click", () => {
+					const idx = parseInt(btn.dataset.idx, 10);
+					const id = panelHistory[idx];
+					panelHistory = panelHistory.slice(0, idx);
+					selectNode(id);
+				});
+			}
+		}
+
+		function closeDetailPanel() {
+			document.getElementById("detail-panel").classList.remove("open");
+			panelHistory = [];
+		}
+
+		function navigateBack() {
+			if (panelHistory.length > 0) {
+				const id = panelHistory.pop();
+				selectNode(id);
+			}
+		}
+
+		// ================================================================
+		// Node Selection
+		// ================================================================
+
+		function selectNode(id) {
+			deselectNode();
+			selectedNodeId = id;
+			const el = fieldNodeElements[id];
+			if (el) {
+				el.classList.add("selected");
+				// Highlight connected edges
+				for (const g of document.querySelectorAll(".connection-group")) {
+					if (g.dataset.from === id || g.dataset.to === id) g.classList.add("highlighted");
+				}
+			}
+			const fn = renderedFieldNodes.find(n => n.id === id);
+			if (fn) showDetailPanel(fn);
+			location.hash = id;
+		}
+
+		function deselectNode() {
+			if (selectedNodeId) {
+				const el = fieldNodeElements[selectedNodeId];
+				if (el) el.classList.remove("selected");
+			}
+			selectedNodeId = null;
+			for (const g of document.querySelectorAll(".connection-group.highlighted")) g.classList.remove("highlighted");
+			closeDetailPanel();
+			history.replaceState(null, "", location.pathname + location.search);
+		}
+
+		// ================================================================
+		// Filter Chips
+		// ================================================================
+
+		let activeFilter = null;
+
+		function renderFilterChips() {
+			const container = document.getElementById("category-filters");
+			container.innerHTML = "";
+			CATEGORY_KEYS.forEach((key, i) => {
+				const cat = CATEGORIES[key];
+				const btn = document.createElement("button");
+				btn.className = "filter-chip";
+				btn.dataset.category = key;
+				btn.style.setProperty("--mod-color", cat.color);
+				btn.innerHTML = `<span class="chip-dot" style="background:${cat.color}"></span><span class="chip-label">${cat.label}</span><span class="chip-key">${i + 1}</span>`;
+				btn.addEventListener("click", () => toggleFilter(key));
+				container.appendChild(btn);
+			});
+		}
+
+		function toggleFilter(key) {
+			if (activeFilter === key) { activeFilter = null; } else { activeFilter = key; }
+			applyFilter();
+		}
+
+		function applyFilter() {
+			// Chips
+			for (const chip of document.querySelectorAll(".filter-chip")) {
+				chip.classList.toggle("active", chip.dataset.category === activeFilter);
+				chip.classList.toggle("dimmed-chip", activeFilter !== null && chip.dataset.category !== activeFilter);
+			}
+			// Nodes
+			for (const fn of renderedFieldNodes) {
+				const el = fieldNodeElements[fn.id];
+				if (!el) continue;
+				el.classList.toggle("dimmed", activeFilter !== null && fn.category !== activeFilter);
+			}
+			// Connections
+			const nodeMap = new Map(renderedFieldNodes.map(n => [n.id, n]));
+			for (const g of document.querySelectorAll(".connection-group")) {
+				const from = nodeMap.get(g.dataset.from);
+				const to = nodeMap.get(g.dataset.to);
+				const match = !activeFilter || from?.category === activeFilter || to?.category === activeFilter;
+				g.classList.toggle("dimmed", !match);
+			}
+		}
+
+		// ================================================================
+		// Pan / Zoom
+		// ================================================================
+
+		let panX = 0, panY = 0, scale = 1;
+		let isPanning = false, panStartX = 0, panStartY = 0;
+
+		function applyTransform() {
+			document.getElementById("viewport").style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
+			document.getElementById("canvas").classList.toggle("zoom-far", scale < 0.5);
+		}
+
+		function setupZoomPan() {
+			const canvas = document.getElementById("canvas");
+
+			canvas.addEventListener("wheel", (e) => {
+				e.preventDefault();
+				const rect = canvas.getBoundingClientRect();
+				const mx = e.clientX - rect.left;
+				const my = e.clientY - rect.top;
+				const factor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
+				const newScale = Math.max(0.1, Math.min(3, scale * factor));
+				const ratio = newScale / scale;
+				panX = mx - ratio * (mx - panX);
+				panY = my - ratio * (my - panY);
+				scale = newScale;
+				applyTransform();
+			}, { passive: false });
+
+			canvas.addEventListener("pointerdown", (e) => {
+				if (e.target.closest(".node") || e.target.closest("#connections g")) return;
+				isPanning = true;
+				panStartX = e.clientX - panX;
+				panStartY = e.clientY - panY;
+				canvas.classList.add("grabbing");
+				canvas.setPointerCapture(e.pointerId);
+			});
+
+			canvas.addEventListener("pointermove", (e) => {
+				if (!isPanning) return;
+				panX = e.clientX - panStartX;
+				panY = e.clientY - panStartY;
+				applyTransform();
+			});
+
+			const endPan = () => { isPanning = false; canvas.classList.remove("grabbing"); };
+			canvas.addEventListener("pointerup", endPan);
+			canvas.addEventListener("pointercancel", endPan);
+
+			// Double click to zoom on node
+			canvas.addEventListener("dblclick", (e) => {
+				const nodeEl = e.target.closest(".node");
+				if (!nodeEl) return;
+				const fn = renderedFieldNodes.find(n => n.id === nodeEl.dataset.id);
+				if (!fn) return;
+				const rect = canvas.getBoundingClientRect();
+				scale = 1;
+				panX = rect.width / 2 - fn.x - FIELD_NODE_W / 2;
+				panY = rect.height / 2 - fn.y - fn._h / 2;
+				applyTransform();
+			});
+		}
+
+		function fitAll() {
+			if (renderedFieldNodes.length === 0) return;
+			const canvas = document.getElementById("canvas");
+			const rect = canvas.getBoundingClientRect();
+			const labW = document.getElementById("query-lab")?.offsetWidth || 0;
+			const panelW = document.getElementById("detail-panel")?.classList.contains("open") ? 360 : 0;
+			const availW = rect.width - labW - panelW - 80;
+			const availH = rect.height - 80;
+
+			let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+			for (const fn of renderedFieldNodes) {
+				minX = Math.min(minX, fn.x);
+				minY = Math.min(minY, fn.y);
+				maxX = Math.max(maxX, fn.x + FIELD_NODE_W);
+				maxY = Math.max(maxY, fn.y + fn._h);
+			}
+
+			const contentW = maxX - minX;
+			const contentH = maxY - minY;
+			if (contentW <= 0 || contentH <= 0) return;
+
+			scale = Math.min(1.2, Math.min(availW / contentW, availH / contentH));
+			panX = labW + (availW - contentW * scale) / 2 - minX * scale + 40;
+			panY = (availH - contentH * scale) / 2 - minY * scale + 40;
+			applyTransform();
+		}
+
+		// ================================================================
+		// Search
+		// ================================================================
+
+		function setupSearch() {
+			const input = document.getElementById("node-search");
+			const clearBtn = document.getElementById("node-search-clear");
+			const meta = document.getElementById("node-search-meta");
+			const wrap = document.getElementById("search-wrap");
+			const headerRight = document.getElementById("header-right");
+			let timeout;
+			let matchIds = [];
+			let matchIdx = 0;
+
+			function doSearch() {
+				const term = input.value.trim().toLowerCase();
+				wrap.classList.toggle("has-value", term.length > 0);
+
+				// Clear old states
+				for (const fn of renderedFieldNodes) {
+					const el = fieldNodeElements[fn.id];
+					if (el) { el.classList.remove("search-match", "search-dimmed"); }
+				}
+				for (const g of document.querySelectorAll(".connection-group")) g.classList.remove("search-dimmed");
+				input.classList.remove("has-match", "no-match");
+				headerRight.classList.remove("has-search-meta");
+
+				if (!term) { matchIds = []; return; }
+
+				matchIds = renderedFieldNodes
+					.filter(fn => fn.fieldName.toLowerCase().includes(term) || fn.returnType.toLowerCase().includes(term) || fn.parentType.toLowerCase().includes(term))
+					.map(fn => fn.id);
+
+				if (matchIds.length > 0) {
+					input.classList.add("has-match");
+					for (const fn of renderedFieldNodes) {
+						const el = fieldNodeElements[fn.id];
+						if (!el) continue;
+						if (matchIds.includes(fn.id)) el.classList.add("search-match");
+						else el.classList.add("search-dimmed");
+					}
+					const matchSet = new Set(matchIds);
+					for (const g of document.querySelectorAll(".connection-group")) {
+						if (!matchSet.has(g.dataset.from) && !matchSet.has(g.dataset.to)) g.classList.add("search-dimmed");
+					}
+				} else {
+					input.classList.add("no-match");
+				}
+
+				meta.textContent = `${matchIds.length} match${matchIds.length !== 1 ? "es" : ""}`;
+				headerRight.classList.add("has-search-meta");
+				matchIdx = 0;
+			}
+
+			input.addEventListener("input", () => {
+				clearTimeout(timeout);
+				timeout = setTimeout(doSearch, 120);
+			});
+
+			input.addEventListener("keydown", (e) => {
+				if (e.key === "Enter" && matchIds.length > 0) {
+					selectNode(matchIds[matchIdx % matchIds.length]);
+					matchIdx++;
+				}
+				if (e.key === "Escape") {
+					input.value = "";
+					doSearch();
+					input.blur();
+				}
+			});
+
+			clearBtn.addEventListener("click", () => {
+				input.value = "";
+				doSearch();
+			});
+
+			document.addEventListener("keydown", (e) => {
+				if ((e.key === "/" || (e.ctrlKey && e.key === "k")) && !e.target.closest("input, textarea")) {
+					e.preventDefault();
+					input.focus();
+				}
+			});
+		}
+
+		// ================================================================
+		// Connection Labels
+		// ================================================================
+
+		function setupConnectionLabels() {
+			const label = document.getElementById("connection-label");
+			const canvas = document.getElementById("canvas");
+			const nodeMap = () => new Map(renderedFieldNodes.map(n => [n.id, n]));
+
+			canvas.addEventListener("mouseover", (e) => {
+				const g = e.target.closest(".connection-group");
+				if (!g) return;
+				const map = nodeMap();
+				const from = map.get(g.dataset.from);
+				const to = map.get(g.dataset.to);
+				if (from && to) {
+					label.textContent = `${from.fieldName} \u2192 ${to.fieldName}`;
+					label.classList.add("visible");
+				}
+			});
+
+			canvas.addEventListener("mouseout", (e) => {
+				if (e.target.closest(".connection-group")) label.classList.remove("visible");
+			});
+
+			canvas.addEventListener("mousemove", (e) => {
+				if (!label.classList.contains("visible")) return;
+				label.style.left = `${e.clientX + 12}px`;
+				label.style.top = `${e.clientY - 24}px`;
+			});
+		}
+
+		// ================================================================
+		// Keyboard Navigation
+		// ================================================================
+
+		function setupKeyboard() {
+			document.addEventListener("keydown", (e) => {
+				if (e.target.closest("input, textarea")) return;
+
+				// Number keys for filter chips
+				const num = parseInt(e.key, 10);
+				if (num >= 1 && num <= CATEGORY_KEYS.length) {
+					toggleFilter(CATEGORY_KEYS[num - 1]);
+					return;
+				}
+
+				if (e.key === "f" || e.key === "F") { fitAll(); return; }
+				if (e.key === "Escape") { deselectNode(); activeFilter = null; applyFilter(); return; }
+
+				if (!selectedNodeId) return;
+				const fn = renderedFieldNodes.find(n => n.id === selectedNodeId);
+				if (!fn) return;
+				const nodeMap = new Map(renderedFieldNodes.map(n => [n.id, n]));
+
+				if (e.key === "ArrowRight" && fn.childIds.length > 0) {
+					e.preventDefault();
+					panelHistory.push(fn.id);
+					selectNode(fn.childIds[0]);
+				} else if (e.key === "ArrowLeft" && fn.parentId) {
+					e.preventDefault();
+					panelHistory = [];
+					selectNode(fn.parentId);
+				} else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+					e.preventDefault();
+					if (!fn.parentId) return;
+					const parent = nodeMap.get(fn.parentId);
+					if (!parent) return;
+					const siblings = parent.childIds;
+					const idx = siblings.indexOf(fn.id);
+					const next = e.key === "ArrowDown" ? idx + 1 : idx - 1;
+					if (next >= 0 && next < siblings.length) selectNode(siblings[next]);
+				}
+			});
+		}
+
+		// ================================================================
+		// Query Lab
+		// ================================================================
+
+		let traceState = null;
+		let analysisResult = null;
+
+		function renderQueryLab() {
+			const lab = document.getElementById("query-lab");
+
+			const presetsHtml = PRESET_KEYS.map(k => `<button class="lab-segment-btn" data-key="${k}">${PRESETS[k].label}</button>`).join("");
+
+			lab.innerHTML = `
+				<div class="lab-section">
+					<div class="lab-presets">${presetsHtml}</div>
+				</div>
+				<div class="lab-section">
+					<textarea class="lab-editor" id="lab-editor" placeholder="Enter GraphQL query..." spellcheck="false"></textarea>
+				</div>
+				<div class="lab-control-deck">
+					<div class="deck-module">
+						<span class="deck-label">Limit</span>
+						<div class="deck-stepper">
+							<button id="limit-dec">\u2212</button>
+							<input type="number" id="limit-input" value="1000" min="1" step="100">
+							<button id="limit-inc">+</button>
+						</div>
+					</div>
+					<div class="deck-module" style="flex:1">
+						<span class="deck-label">Complexity</span>
+						<div class="pressure-meter">
+							<div class="pressure-track"><div class="pressure-fill" id="pressure-fill"></div></div>
+							<span class="pressure-value" id="pressure-value">0</span>
+						</div>
+					</div>
+					<div class="deck-actions">
+						<button class="deck-btn ghost" id="btn-clr">CLR</button>
+						<button class="deck-btn primary" id="btn-run">RUN</button>
+					</div>
+				</div>
+				<div class="lab-trace-section">
+					<div class="console-header">
+						<span class="status-dot" id="status-dot"></span>
+						<span class="console-title">Complexity Trace</span>
+						<div class="console-playback" id="playback-controls">
+							<span class="console-counter" id="step-counter">0/0</span>
+							<input type="range" class="console-scrub" id="step-scrub" min="0" max="0" value="0">
+							<button class="console-toggle" id="step-toggle">\u25b6</button>
+						</div>
+					</div>
+					<div class="console-output" id="console-output"></div>
+				</div>
+				<div class="lab-resize-handle" id="lab-resize"></div>`;
+
+			// Wire presets
+			for (const btn of lab.querySelectorAll(".lab-segment-btn")) {
+				btn.addEventListener("click", () => loadExample(btn.dataset.key));
+			}
+
+			// Wire controls
+			document.getElementById("btn-run").addEventListener("click", runAnalysis);
+			document.getElementById("btn-clr").addEventListener("click", clearTrace);
+			document.getElementById("limit-dec").addEventListener("click", () => adjustLimit(-100));
+			document.getElementById("limit-inc").addEventListener("click", () => adjustLimit(100));
+			document.getElementById("limit-input").addEventListener("change", () => updateLivePressure());
+
+			// Wire scrub + toggle
+			document.getElementById("step-scrub").addEventListener("input", (e) => {
+				if (traceState) jumpToStep(parseInt(e.target.value, 10));
+			});
+			document.getElementById("step-toggle").addEventListener("click", togglePlayback);
+
+			// Resize handle
+			setupLabResize();
+
+			// Auto-load first preset
+			loadExample("simple");
+		}
+
+		function loadExample(key) {
+			const preset = PRESETS[key];
+			if (!preset) return;
+
+			// Activate preset button
+			for (const btn of document.querySelectorAll(".lab-segment-btn")) {
+				btn.classList.toggle("active", btn.dataset.key === key);
+			}
+
+			document.getElementById("lab-editor").value = preset.query;
+			document.getElementById("limit-input").value = preset.maxComplexity;
+			clearTrace();
+			runAnalysis();
+		}
+
+		function adjustLimit(delta) {
+			const input = document.getElementById("limit-input");
+			input.value = Math.max(1, parseInt(input.value, 10) + delta);
+			updateLivePressure();
+		}
+
+		function updateLivePressure() {
+			const limit = parseInt(document.getElementById("limit-input").value, 10) || 1;
+			const fill = document.getElementById("pressure-fill");
+			const val = document.getElementById("pressure-value");
+
+			if (!analysisResult || analysisResult.error) {
+				fill.style.width = "0%";
+				fill.className = "pressure-fill";
+				val.textContent = "0";
+				return;
+			}
+
+			const complexity = analysisResult.complexity;
+			const pct = Math.min(100, (complexity / limit) * 100);
+			fill.style.width = `${pct}%`;
+			fill.className = `pressure-fill ${complexity > limit ? "crit" : "safe"}`;
+			val.textContent = complexity;
+		}
+
+		function clearTrace() {
+			if (traceState?.timer) clearTimeout(traceState.timer);
+			traceState = null;
+
+			document.getElementById("console-output").innerHTML = "";
+			document.getElementById("status-dot").className = "status-dot";
+			document.getElementById("playback-controls").classList.remove("visible");
+			document.getElementById("step-counter").textContent = "0/0";
+
+			// Remove trace highlights from nodes
+			for (const el of Object.values(fieldNodeElements)) {
+				el.classList.remove("trace-active", "trace-violation");
+			}
+			for (const g of document.querySelectorAll(".connection-group")) {
+				g.classList.remove("trace-active", "trace-violation");
+			}
+		}
+
+		function runAnalysis() {
+			clearTrace();
+			const query = document.getElementById("lab-editor").value;
+			const maxComplexity = parseInt(document.getElementById("limit-input").value, 10) || 1000;
+
+			analysisResult = analyzeQuery(query, maxComplexity);
+
+			if (analysisResult.error) {
+				document.getElementById("console-output").innerHTML = `<div class="result-badge fail">ERROR \u2014 ${esc(analysisResult.error)}</div>`;
+				return;
+			}
+
+			// Rebuild canvas
+			renderedFieldNodes = analysisResult.fieldNodes;
+			renderedConnections = analysisResult.connections;
+			clearCanvas();
+			computeLayout(renderedFieldNodes);
+			renderConnections(renderedConnections, renderedFieldNodes);
+			renderFieldNodes(renderedFieldNodes);
+
+			// Wire node clicks
+			for (const [id, el] of Object.entries(fieldNodeElements)) {
+				el.addEventListener("click", (e) => {
+					if (e.detail > 1) return; // skip dblclick
+					panelHistory = [];
+					selectNode(id);
+				});
+			}
+
+			updateLivePressure();
+
+			// Start animation
+			setTimeout(() => {
+				fitAll();
+				setTimeout(() => animateSteps(analysisResult), 300);
+			}, 200);
+		}
+
+		// ================================================================
+		// Animation Engine
+		// ================================================================
+
+		function animateSteps(result) {
+			const steps = result.steps;
+			const total = steps.length;
+			if (total === 0) return;
+
+			const scrub = document.getElementById("step-scrub");
+			scrub.max = total - 1;
+			scrub.value = 0;
+			document.getElementById("playback-controls").classList.add("visible");
+
+			traceState = {
+				current: -1,
+				isPlaying: true,
+				speed: 1,
+				steps,
+				timer: null,
+				total,
+			};
+
+			document.getElementById("step-toggle").textContent = "\u23f8";
+			scheduleNextStep();
+		}
+
+		function scheduleNextStep() {
+			if (!traceState || !traceState.isPlaying) return;
+			const count = traceState.total;
+			const base = count > 30 ? 200 : count > 15 ? 300 : 400;
+			traceState.timer = setTimeout(advanceStep, base / traceState.speed);
+		}
+
+		function advanceStep() {
+			if (!traceState) return;
+			const next = traceState.current + 1;
+			if (next >= traceState.total) {
+				traceState.isPlaying = false;
+				document.getElementById("step-toggle").textContent = "\u25b6";
+				showResult();
+				return;
+			}
+			traceState.current = next;
+			renderStep(next);
+			document.getElementById("step-scrub").value = next;
+			document.getElementById("step-counter").textContent = `${String(next + 1).padStart(2, "0")}/${String(traceState.total).padStart(2, "0")}`;
+			scheduleNextStep();
+		}
+
+		function renderStep(index) {
+			const step = traceState.steps[index];
+			const output = document.getElementById("console-output");
+			const dot = document.getElementById("status-dot");
+
+			// Remove previous highlights
+			for (const el of Object.values(fieldNodeElements)) el.classList.remove("trace-active", "trace-violation");
+			for (const g of document.querySelectorAll(".connection-group")) g.classList.remove("trace-active", "trace-violation");
+
+			// Determine step type CSS class
+			let stepClass = "ok";
+			let icon = "\u2713";
+			if (step.kind === "setup") { stepClass = "setup"; icon = "\u25b8"; }
+			else if (step.violation) { stepClass = "violation"; icon = "\u2717"; }
+
+			// Highlight canvas node
+			if (step.fieldId) {
+				const el = fieldNodeElements[step.fieldId];
+				if (el) {
+					el.classList.add(step.violation ? "trace-violation" : "trace-active");
+				}
+
+				// Highlight edge from parent
+				const fn = renderedFieldNodes.find(n => n.id === step.fieldId);
+				if (fn?.parentId) {
+					for (const g of document.querySelectorAll(".connection-group")) {
+						if (g.dataset.from === fn.parentId && g.dataset.to === fn.id) {
+							g.classList.add(step.violation ? "trace-violation" : "trace-active");
+						}
+					}
+				}
+			}
+
+			// Update status dot
+			if (step.violation) { dot.className = "status-dot blocked"; }
+			else if (step.kind === "field") { dot.className = "status-dot active"; }
+
+			// Update previous step styling
+			for (const prev of output.querySelectorAll(".lab-trace-step.is-current")) prev.classList.remove("is-current");
+
+			// Append step row
+			const row = document.createElement("div");
+			row.className = `lab-trace-step ${stepClass} is-current`;
+			row.dataset.index = index;
+
+			const subInfo = step.kind === "field" ? `<span class="step-state">${step.runningTotal}</span>` : "";
+
+			row.innerHTML = `
+				<span class="step-num">${String(index + 1).padStart(2, "0")}</span>
+				<div class="step-body">
+					<div class="step-fn">${esc(step.label)}</div>
+					<div class="step-id">${step.fieldId ? esc(step.fieldId.split("_")[0]) : ""}${subInfo}</div>
+				</div>
+				<span class="step-icon">${icon}</span>`;
+
+			row.addEventListener("click", () => {
+				if (step.fieldId) {
+					panelHistory = [];
+					selectNode(step.fieldId);
+				}
+			});
+
+			output.appendChild(row);
+			row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+		}
+
+		function jumpToStep(target) {
+			if (!traceState) return;
+			if (traceState.timer) clearTimeout(traceState.timer);
+			traceState.isPlaying = false;
+			document.getElementById("step-toggle").textContent = "\u25b6";
+
+			// Clear and replay
+			document.getElementById("console-output").innerHTML = "";
+			document.getElementById("status-dot").className = "status-dot";
+			for (const el of Object.values(fieldNodeElements)) el.classList.remove("trace-active", "trace-violation");
+			for (const g of document.querySelectorAll(".connection-group")) g.classList.remove("trace-active", "trace-violation");
+
+			for (let i = 0; i <= target; i++) {
+				traceState.current = i;
+				renderStep(i);
+			}
+			document.getElementById("step-counter").textContent = `${String(target + 1).padStart(2, "0")}/${String(traceState.total).padStart(2, "0")}`;
+		}
+
+		function togglePlayback() {
+			if (!traceState) return;
+			if (traceState.isPlaying) {
+				traceState.isPlaying = false;
+				if (traceState.timer) clearTimeout(traceState.timer);
+				document.getElementById("step-toggle").textContent = "\u25b6";
+			} else {
+				if (traceState.current >= traceState.total - 1) {
+					// Reset
+					traceState.current = -1;
+					document.getElementById("console-output").innerHTML = "";
+					document.getElementById("status-dot").className = "status-dot";
+					for (const el of Object.values(fieldNodeElements)) el.classList.remove("trace-active", "trace-violation");
+					for (const g of document.querySelectorAll(".connection-group")) g.classList.remove("trace-active", "trace-violation");
+				}
+				traceState.isPlaying = true;
+				document.getElementById("step-toggle").textContent = "\u23f8";
+				scheduleNextStep();
+			}
+		}
+
+		function showResult() {
+			if (!analysisResult) return;
+			const output = document.getElementById("console-output");
+			const limit = parseInt(document.getElementById("limit-input").value, 10) || 1000;
+			const c = analysisResult.complexity;
+			const isBlocked = c > limit;
+
+			const badge = document.createElement("div");
+			badge.className = `result-badge ${isBlocked ? "fail" : "pass"}`;
+			badge.textContent = isBlocked
+				? `BLOCKED \u2014 complexity ${c} exceeds limit ${limit}`
+				: `PASS \u2014 complexity ${c} / limit ${limit}`;
+			output.appendChild(badge);
+			badge.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
+			document.getElementById("status-dot").className = `status-dot ${isBlocked ? "blocked" : "active"}`;
+		}
+
+		// ================================================================
+		// Lab Resize
+		// ================================================================
+
+		function setupLabResize() {
+			const handle = document.getElementById("lab-resize");
+			const lab = document.getElementById("query-lab");
+			let startX, startW;
+
+			handle.addEventListener("pointerdown", (e) => {
+				startX = e.clientX;
+				startW = lab.offsetWidth;
+				handle.classList.add("active");
+				handle.setPointerCapture(e.pointerId);
+
+				const onMove = (ev) => {
+					const w = Math.max(320, Math.min(500, startW + ev.clientX - startX));
+					lab.style.width = `${w}px`;
+				};
+
+				const onUp = () => {
+					handle.classList.remove("active");
+					handle.removeEventListener("pointermove", onMove);
+					handle.removeEventListener("pointerup", onUp);
+					try { localStorage.setItem("complexity-viz-lab-width", lab.offsetWidth); } catch {}
+				};
+
+				handle.addEventListener("pointermove", onMove);
+				handle.addEventListener("pointerup", onUp);
+			});
+
+			try {
+				const saved = localStorage.getItem("complexity-viz-lab-width");
+				if (saved) lab.style.width = `${Math.max(320, Math.min(500, parseInt(saved, 10)))}px`;
+			} catch {}
+		}
+
+		// ================================================================
+		// Viewport Sync
+		// ================================================================
+
+		function syncHeaderHeight() {
+			const h = document.getElementById("header").offsetHeight;
+			document.documentElement.style.setProperty("--header-h", `${h}px`);
+		}
+
+		function syncAppViewportHeight() {
+			if (window.visualViewport) {
+				const update = () => document.documentElement.style.setProperty("--app-vh", `${window.visualViewport.height}px`);
+				window.visualViewport.addEventListener("resize", update);
+				update();
+			}
+		}
+
+		// ================================================================
+		// Init
+		// ================================================================
+
+		function init() {
+			syncAppViewportHeight();
+			syncHeaderHeight();
+
+			renderFilterChips();
+			setupZoomPan();
+			setupKeyboard();
+			setupSearch();
+			setupConnectionLabels();
+			renderQueryLab();
+
+			document.getElementById("fit-btn").addEventListener("click", () => fitAll());
+			document.getElementById("panel-back").addEventListener("click", navigateBack);
+			document.getElementById("panel-close").addEventListener("click", deselectNode);
+
+			new ResizeObserver(() => syncHeaderHeight()).observe(document.getElementById("header"));
+
+			// Restore hash selection
+			if (location.hash.length > 1) {
+				const id = location.hash.slice(1);
+				setTimeout(() => { if (fieldNodeElements[id]) selectNode(id); }, 600);
+			}
+		}
+
+		init();
+	</script>
+</body>
+</html>
