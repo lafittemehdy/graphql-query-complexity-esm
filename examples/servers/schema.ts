@@ -47,10 +47,11 @@ export const typeDefs = `#graphql
 // Mock data
 // ---------------------------------------------------------------------------
 
-interface MockUser {
-	friendIds: string[];
+interface MockComment {
+	authorId: string;
 	id: string;
-	name: string;
+	postId: string;
+	text: string;
 }
 
 interface MockPost {
@@ -60,17 +61,16 @@ interface MockPost {
 	title: string;
 }
 
-interface MockComment {
-	authorId: string;
+interface MockUser {
+	friendIds: string[];
 	id: string;
-	postId: string;
-	text: string;
+	name: string;
 }
 
-const users: MockUser[] = [
-	{ friendIds: ["2", "3"], id: "1", name: "Alice" },
-	{ friendIds: ["1"], id: "2", name: "Bob" },
-	{ friendIds: ["1", "2"], id: "3", name: "Charlie" },
+const comments: MockComment[] = [
+	{ authorId: "2", id: "c1", postId: "p1", text: "Great post!" },
+	{ authorId: "3", id: "c2", postId: "p1", text: "Very helpful." },
+	{ authorId: "1", id: "c3", postId: "p2", text: "Thanks for sharing." },
 ];
 
 const posts: MockPost[] = [
@@ -78,10 +78,10 @@ const posts: MockPost[] = [
 	{ authorId: "2", content: "Protect your APIs.", id: "p2", title: "Query Complexity" },
 ];
 
-const comments: MockComment[] = [
-	{ authorId: "2", id: "c1", postId: "p1", text: "Great post!" },
-	{ authorId: "3", id: "c2", postId: "p1", text: "Very helpful." },
-	{ authorId: "1", id: "c3", postId: "p2", text: "Thanks for sharing." },
+const users: MockUser[] = [
+	{ friendIds: ["2", "3"], id: "1", name: "Alice" },
+	{ friendIds: ["1"], id: "2", name: "Bob" },
+	{ friendIds: ["1", "2"], id: "3", name: "Charlie" },
 ];
 
 // ---------------------------------------------------------------------------

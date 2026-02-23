@@ -1,21 +1,36 @@
 # graphql-query-complexity-esm
 
 [![CI](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/ci.yml/badge.svg)](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/graphql-query-complexity-esm)](https://www.npmjs.com/package/graphql-query-complexity-esm)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Pages](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/pages.yml/badge.svg)](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/pages.yml)
+[![npm version](https://img.shields.io/npm/v/graphql-query-complexity-esm)](https://www.npmjs.com/package/graphql-query-complexity-esm)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node >=22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-GraphQL APIs are vulnerable to expensive queries — a deeply nested or fan-out query can consume resources far beyond what a simple rate limit catches. `graphql-query-complexity-esm` assigns a cost score to every field and rejects queries that exceed a budget **before a single resolver runs**.
+A deeply nested or fan-out GraphQL query can burn through resources that simple rate limits won't catch. `graphql-query-complexity-esm` scores every field and rejects queries over budget **before a single resolver runs**.
 
-- **Validation rule** (`complexityLimit`) — plug into any GraphQL server's validate pipeline
-- **Programmatic API** (`getComplexity`, `getComplexityBreakdown`) — analyze costs outside validation
-- **Estimator chains** — first estimator returning a finite number wins; return `undefined` to defer
-- **Built-in estimators**: `simpleEstimator` (fixed cost per field) and `fieldExtensionsEstimator` (`@complexity` directive or `field.extensions.complexity`)
-- **Directive-aware**: honors `@skip` and `@include` during traversal
+- **Validation rule** (`complexityLimit`): plugs into any server's validate pipeline
+- **Programmatic API** (`getComplexity`, `getComplexityBreakdown`): analyze costs outside validation
+- **Estimator chains**: first estimator returning a finite number wins; return `undefined` to defer
+- **Built-in estimators**: `simpleEstimator` (flat cost) and `fieldExtensionsEstimator` (`@complexity` directive / `field.extensions.complexity`)
+- **Directive-aware**: honors `@skip` and `@include`
 - **Fragment support**: named fragments, inline fragments, per-path cycle protection
 - **Node-count guard**: configurable `maxNodes` (default `10_000`) prevents AST explosion
 - **Typed error codes**: `ESTIMATOR_ERROR`, `NODE_LIMIT_EXCEEDED`, `QUERY_TOO_COMPLEX`
-- **TypeScript**: ships with `.d.ts` declarations; works with plain JavaScript too
-- **Dual publish**: ESM + CJS from the same package
+- **TypeScript**: ships `.d.ts` declarations, works with plain JS too
+- **ESM + CJS** dual publish
+- **[Interactive demo](https://lafittemehdy.github.io/graphql-query-complexity-esm/)**: see costs compound field by field
+
+## Interactive Demo
+
+**[Try it live](https://lafittemehdy.github.io/graphql-query-complexity-esm/)** or run locally:
+
+```bash
+cd examples/visualization
+npm install
+npm run dev
+```
+
+Includes preset queries (simple lookups through exponential fan-out), an animated scan showing per-field costs, and a detail panel for inspecting cost formulas.
 
 ## Requirements
 
@@ -69,9 +84,9 @@ if (errors.length > 0) {
 
 ### `complexityLimit(maxComplexity, options?, callback?)`
 
-Creates a GraphQL validation rule that rejects queries exceeding a maximum complexity score.
+Returns a validation rule that rejects queries over the given complexity score.
 
-`maxComplexity` — required, must be a positive integer.
+`maxComplexity`: required, positive integer.
 
 **Options:**
 
@@ -84,9 +99,9 @@ Creates a GraphQL validation rule that rejects queries exceeding a maximum compl
 
 **Callback:**
 
-Optional `ComplexityCallback` — called once on document leave, only when this rule did not report an error. Receives a `ComplexityByOperation` map of operation names to complexity scores.
+Optional `ComplexityCallback`, called on document leave when no error was reported. Receives a `ComplexityByOperation` map (operation name to score).
 
-Anonymous operations receive deterministic keys: the first is `"[anonymous]"`, subsequent ones are `"[anonymous:2]"`, `"[anonymous:3]"`, etc.
+Anonymous operations get deterministic keys: `"[anonymous]"`, then `"[anonymous:2]"`, `"[anonymous:3]"`, etc.
 
 ```ts
 const rule = complexityLimit(
@@ -105,7 +120,7 @@ const rule = complexityLimit(
 
 ### `getComplexity(options)` / `getComplexityBreakdown(options)`
 
-Programmatic complexity calculation outside the server validation flow.
+Calculate complexity outside the validation pipeline.
 
 | Option | Type | Required | Default | Validation |
 |---|---|---|---|---|
@@ -115,8 +130,8 @@ Programmatic complexity calculation outside the server validation flow.
 | `maxNodes` | `number` | no | `10_000` | Positive integer |
 | `variables` | `Record<string, unknown>` | no | `{}` | Plain object |
 
-- `getComplexity()` — returns the highest complexity score among all operations.
-- `getComplexityBreakdown()` — returns a frozen `ComplexityByOperation` map.
+- `getComplexity()` returns the highest score across all operations.
+- `getComplexityBreakdown()` returns a frozen `ComplexityByOperation` map.
 
 Both throw `QueryComplexityValidationError` on parse/validation failures:
 
@@ -136,8 +151,8 @@ try {
   console.log("Query cost:", cost);
 } catch (error) {
   if (error instanceof QueryComplexityValidationError) {
-    // error.errors  — readonly GraphQLError[]
-    // error.message — all error messages joined with newline
+    // error.errors: readonly GraphQLError[]
+    // error.message: all messages joined with newline
     console.error(error.errors);
   }
 }
@@ -167,7 +182,7 @@ field.extensions = { complexity: { value: 2, multipliers: ["limit"] } }; // with
 ```
 
 ```graphql
-# Directive (SDL-first schemas) — add complexityDirectiveTypeDefs to your schema
+# Directive (SDL-first schemas) - add complexityDirectiveTypeDefs to your schema
 type Query {
   users(limit: Int): [User!]! @complexity(value: 2, multipliers: ["limit"])
 }
@@ -175,16 +190,44 @@ type Query {
 
 ### `simpleEstimator(options?)`
 
-Assigns a fixed base cost to every field and adds child complexity on top.
+Fixed base cost per field, plus child complexity.
 
-- `defaultComplexity` — base cost per field (default `1`)
+- `defaultComplexity`: base cost per field (default `1`)
 - Formula: `cost + childComplexity`
 
 > **Note:** This estimator does not account for list multipliers. Fields returning lists (e.g. `users(limit: 100)`) receive the same cost as scalar fields. Use `fieldExtensionsEstimator` or a custom estimator for accurate list costing.
 
+### Custom Estimators
+
+An estimator receives field context and returns a cost (`number`) or `undefined` to defer. Evaluated in order: first finite number wins.
+
+```ts
+import type { ComplexityEstimator } from "graphql-query-complexity-esm";
+
+/** Assigns a higher base cost to fields that return list types. */
+const listPenaltyEstimator: ComplexityEstimator = ({
+  childComplexity,
+  field,
+  type,
+}) => {
+  const returnType = field.type;
+  const isList = returnType.toString().startsWith("[");
+  if (!isList) return undefined; // defer to next estimator
+
+  return 5 + childComplexity;
+};
+
+// Chain with built-in estimators (first match wins):
+const estimators = [
+  fieldExtensionsEstimator(), // check extensions/directives first
+  listPenaltyEstimator,       // then apply list penalty
+  simpleEstimator(),           // fallback: 1 per field
+];
+```
+
 ### `complexityDirectiveTypeDefs`
 
-SDL string for the `@complexity` directive. Add to your schema type definitions when using directive-based costs with `fieldExtensionsEstimator`:
+SDL string for the `@complexity` directive. Include in your schema when using directive-based costs with `fieldExtensionsEstimator`:
 
 ```graphql
 directive @complexity(value: Int!, multipliers: [String!]) on FIELD_DEFINITION
@@ -232,7 +275,7 @@ Frozen object with GraphQL error extension codes:
 
 ### Apollo Server
 
-Uses `getComplexity()` inside a `didResolveOperation` plugin hook to reject expensive queries before execution. [Full example](https://github.com/lafittemehdy/graphql-query-complexity-esm/blob/master/examples/servers/apollo-server.ts)
+Checks complexity in `didResolveOperation` and rejects before execution. [Full example](https://github.com/lafittemehdy/graphql-query-complexity-esm/blob/master/examples/servers/apollo-server.ts)
 
 ```ts
 import { GraphQLError } from "graphql";
@@ -261,7 +304,13 @@ const server = new ApolloServer({
             if (complexity > MAX_COMPLEXITY) {
               throw new GraphQLError(
                 `Query complexity ${complexity} exceeds maximum of ${MAX_COMPLEXITY}.`,
-                { extensions: { code: "QUERY_TOO_COMPLEX", complexity, maximumComplexity: MAX_COMPLEXITY } },
+                {
+                  extensions: {
+                    code: "QUERY_TOO_COMPLEX",
+                    complexity,
+                    maximumComplexity: MAX_COMPLEXITY,
+                  },
+                },
               );
             }
           },
@@ -275,7 +324,7 @@ const server = new ApolloServer({
 
 ### GraphQL Yoga
 
-Uses `complexityLimit()` as a validation rule via the `onValidate` plugin hook. [Full example](https://github.com/lafittemehdy/graphql-query-complexity-esm/blob/master/examples/servers/yoga-server.ts)
+Passes `complexityLimit()` as a validation rule through `onValidate`. [Full example](https://github.com/lafittemehdy/graphql-query-complexity-esm/blob/master/examples/servers/yoga-server.ts)
 
 ```ts
 import {
@@ -408,6 +457,17 @@ pnpm bench
 
 </details>
 
+## Related Packages
+
+Works with these other GraphQL security packages:
+
+| Package | Purpose |
+|---|---|
+| [`graphql-query-depth-limit-esm`](https://github.com/lafittemehdy/graphql-query-depth-limit-esm) | Rejects deeply nested queries before execution |
+| [`graphql-rate-limit-redis-esm`](https://github.com/lafittemehdy/graphql-rate-limit-redis-esm) | Redis-backed per-field rate limiting via `@rateLimit` directive |
+
+**Recommended layering:** depth limiting as a fast first gate, complexity analysis for cost control, rate limiting for per-client throttling.
+
 ## License
 
-MIT
+[MIT](LICENSE)
