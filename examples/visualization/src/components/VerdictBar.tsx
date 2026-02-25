@@ -59,10 +59,10 @@ function useHoldRepeat(callback: () => void): {
 
 /** Adaptive step: ~10% of current limit, snapped to a clean number. */
 function getStep(limit: number): number {
-  if (limit < 20) return 5;
+  if (limit < 20) return 1;
   const raw = limit * 0.1;
   const magnitude = 10 ** Math.floor(Math.log10(raw));
-  return Math.max(5, Math.round(raw / magnitude) * magnitude);
+  return Math.max(1, Math.round(raw / magnitude) * magnitude);
 }
 
 interface VerdictBarProps {
@@ -95,12 +95,24 @@ export function VerdictBar({
   const step = getStep(limit);
 
   const handleDecrement = useCallback(() => {
-    onLimitChange(Math.max(5, limit - step));
-  }, [limit, onLimitChange, step]);
+    const next = limit - step;
+    // Snap to cost if stepping would cross it
+    if (cost > 0 && cost < limit && cost > next) {
+      onLimitChange(cost);
+    } else {
+      onLimitChange(Math.max(1, next));
+    }
+  }, [cost, limit, onLimitChange, step]);
 
   const handleIncrement = useCallback(() => {
-    onLimitChange(limit + step);
-  }, [limit, onLimitChange, step]);
+    const next = limit + step;
+    // Snap to cost if stepping would cross it
+    if (cost > 0 && cost > limit && cost < next) {
+      onLimitChange(cost);
+    } else {
+      onLimitChange(next);
+    }
+  }, [cost, limit, onLimitChange, step]);
 
   const decrementHold = useHoldRepeat(handleDecrement);
   const incrementHold = useHoldRepeat(handleIncrement);

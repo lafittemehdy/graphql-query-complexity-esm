@@ -1,8 +1,8 @@
 /**
  * Horizontal preset tab bar above the editor area.
  *
- * Shows a row of preset buttons with the active preset's description
- * displayed below for educational context.
+ * Renders preset buttons with the active preset's description inline,
+ * pushed to the right on desktop and wrapping below on narrow screens.
  *
  * @module PresetBar
  */
@@ -16,7 +16,7 @@ interface PresetBarProps {
   onSelect: (presetId: string) => void;
 }
 
-/** Compact horizontal row of preset buttons with active description. */
+/** Compact horizontal row of preset buttons with inline active description. */
 export function PresetBar({ activePresetId, onSelect }: PresetBarProps) {
   const activeDescription = useMemo(
     () => PRESETS.find((p) => p.id === activePresetId)?.description ?? null,
@@ -25,20 +25,20 @@ export function PresetBar({ activePresetId, onSelect }: PresetBarProps) {
 
   return (
     <div className="preset-bar">
-      <div className="preset-bar-buttons">
-        {PRESETS.map((preset) => (
-          <button
-            className={`preset-btn${preset.id === activePresetId ? " active" : ""}`}
-            key={preset.id}
-            onClick={() => onSelect(preset.id)}
-            title={preset.description}
-            type="button"
-          >
-            {preset.label}
-          </button>
-        ))}
-      </div>
-      {activeDescription && <p className="preset-description">{activeDescription}</p>}
+      {PRESETS.map((preset) => (
+        <button
+          className={`preset-btn${preset.id === activePresetId ? " active" : ""}`}
+          key={preset.id}
+          onClick={() => onSelect(preset.id)}
+          title={preset.description}
+          type="button"
+        >
+          {preset.label}
+        </button>
+      ))}
+      {activeDescription && (
+        <span className="preset-description">{activeDescription}</span>
+      )}
     </div>
   );
 }

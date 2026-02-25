@@ -303,10 +303,10 @@ body::after {
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-muted);
-  display: flex;
+  display: inline-flex;
   font-family: var(--font-mono);
   font-size: 10px;
-  gap: 5px;
+  gap: 4px;
   padding: 4px 10px;
   transition: all 0.15s;
 }
@@ -332,22 +332,18 @@ body::after {
 }
 
 /* ---------------------------------------------------------------------------
-   Preset bar (horizontal tabs)
+   Preset bar (horizontal row with inline description)
    --------------------------------------------------------------------------- */
 
 .preset-bar {
+  align-items: center;
   border-bottom: 1px solid var(--border);
   display: flex;
-  flex-direction: column;
   flex-shrink: 0;
-  gap: 0;
-  padding: 8px 16px;
-}
-
-.preset-bar-buttons {
-  display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  padding: 8px 16px;
+  row-gap: 4px;
 }
 
 .preset-btn {
@@ -369,18 +365,17 @@ body::after {
 }
 
 .preset-btn.active {
-  background: rgba(212, 162, 76, 0.06);
-  border-color: rgba(212, 162, 76, 0.4);
+  background: rgba(212, 162, 76, 0.08);
+  border-color: rgba(212, 162, 76, 0.5);
   color: var(--accent);
 }
 
 .preset-description {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.02em;
-  margin-top: 6px;
-  min-height: 15px;
+  margin-left: auto;
   transition: opacity 0.15s;
 }
 
@@ -665,8 +660,8 @@ body::after {
 }
 
 .verdict-separator {
-  color: var(--text-muted);
-  font-size: 11px;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .verdict-limit-stepper {
@@ -724,14 +719,14 @@ body::after {
 
 .verdict-gauge {
   background: rgba(255, 255, 255, 0.04);
-  border-radius: 3px;
+  border-radius: 4px;
   flex: 1;
-  height: 5px;
+  height: 6px;
   overflow: hidden;
 }
 
 .verdict-gauge-fill {
-  border-radius: 3px;
+  border-radius: 4px;
   height: 100%;
   transition:
     background 0.3s,
@@ -758,11 +753,13 @@ body::after {
 }
 
 .verdict-badge-pass {
+  background: rgba(128, 184, 88, 0.06);
   border-color: rgba(128, 184, 88, 0.3);
   color: var(--success);
 }
 
 .verdict-badge-blocked {
+  background: rgba(200, 104, 96, 0.06);
   border-color: rgba(200, 104, 96, 0.3);
   color: var(--error);
 }
@@ -794,11 +791,14 @@ body::after {
 }
 
 .detail-close {
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-muted);
-  font-size: 13px;
+  display: flex;
+  font-size: 14px;
   height: 24px;
+  justify-content: center;
   line-height: 1;
   position: absolute;
   right: 12px;
@@ -809,8 +809,9 @@ body::after {
 }
 
 .detail-close:hover {
+  background: rgba(255, 255, 255, 0.04);
   border-color: var(--border-hover);
-  color: var(--text-secondary);
+  color: var(--text);
 }
 
 .detail-header {
@@ -1032,14 +1033,14 @@ body::after {
 
 .detail-share-bar {
   background: rgba(255, 255, 255, 0.04);
-  border-radius: 3px;
-  height: 5px;
+  border-radius: 4px;
+  height: 6px;
   margin-bottom: 6px;
   overflow: hidden;
 }
 
 .detail-share-fill {
-  border-radius: 2px;
+  border-radius: 4px;
   height: 100%;
   transition: width 0.3s;
 }
@@ -1096,13 +1097,17 @@ body::after {
   font-family: var(--font-mono);
   font-size: 11px;
   justify-content: space-between;
-  padding: 3px 6px;
+  padding: 4px 6px;
   text-align: left;
   transition: background 0.1s;
 }
 
 .detail-child-btn:hover {
-  background: var(--bg-elevated);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.detail-child-btn:hover .detail-child-name {
+  color: var(--accent);
 }
 
 .detail-child-name {
@@ -1388,8 +1393,9 @@ body::after {
     flex-direction: column;
   }
 
-  .preset-bar-buttons {
-    flex-wrap: wrap;
+  .preset-description {
+    flex-basis: 100%;
+    margin-left: 0;
   }
 
   .code-editor-gutter {
@@ -1494,11 +1500,8 @@ body::after {
   }
 
   .preset-bar {
-    padding: 6px 12px;
-  }
-
-  .preset-bar-buttons {
     gap: 4px;
+    padding: 6px 12px;
   }
 
   .preset-btn {
@@ -1509,7 +1512,6 @@ body::after {
 
   .preset-description {
     font-size: 9px;
-    margin-top: 4px;
   }
 
   .code-editor-gutter {

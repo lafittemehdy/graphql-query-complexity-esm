@@ -63,7 +63,7 @@ export const COMPLEXITY_CONFIG: Record<string, { multipliers?: string[]; value: 
 /** Ordered list of preset queries. */
 export const PRESETS: Preset[] = [
   {
-    description: "Flat query, base cost per field",
+    description: "Each field adds a base cost of 1, no multipliers",
     expectedCost: 3,
     id: "simple",
     label: "Simple",
@@ -76,7 +76,7 @@ export const PRESETS: Preset[] = [
 }`,
   },
   {
-    description: "Pagination multiplier on a list field",
+    description: "first: 10 multiplies the cost of every child field",
     expectedCost: 31,
     id: "list",
     label: "List",
@@ -90,7 +90,7 @@ export const PRESETS: Preset[] = [
 }`,
   },
   {
-    description: "Multipliers compound through nesting",
+    description: "Multipliers stack at each nesting level",
     expectedCost: 271,
     id: "nested",
     label: "Nested",
@@ -108,11 +108,11 @@ export const PRESETS: Preset[] = [
 }`,
   },
   {
-    description: "Why you need this library",
+    description: "Deep nesting with large pages causes exponential cost",
     expectedCost: 32701,
     id: "bomb",
     label: "Exponential",
-    limit: 500,
+    limit: 32700,
     query: `query DashboardData {
   users(first: 50) {
     name
@@ -133,7 +133,7 @@ export const PRESETS: Preset[] = [
 }`,
   },
   {
-    description: "Named fragment expansion",
+    description: "Fragments are expanded inline before costing",
     expectedCost: 9,
     id: "fragment",
     label: "Fragment",
@@ -153,7 +153,7 @@ fragment UserFields on User {
 }`,
   },
   {
-    description: "Adjust the limit to see BLOCKED \u2192 PASS",
+    description: "Cost barely exceeds the limit, try bumping it up",
     expectedCost: 26,
     id: "tuned",
     label: "Tuned",
