@@ -11,6 +11,10 @@ import { isRecordObject } from "./utils.js";
  * and accumulated child complexity.
  *
  * Formula: `base + multiplierProduct * childComplexity`
+ *
+ * Negative argument values are ignored (treated as if the argument was not
+ * provided) and the product is clamped to `Number.MAX_SAFE_INTEGER` to
+ * prevent lossy floating-point arithmetic.
  */
 function calculateFieldCost(
 	args: Record<string, unknown>,
@@ -22,8 +26,8 @@ function calculateFieldCost(
 	if (multipliers) {
 		for (const name of multipliers) {
 			const argValue = args[name];
-			if (typeof argValue === "number" && Number.isFinite(argValue)) {
-				multiplier *= argValue;
+			if (typeof argValue === "number" && Number.isFinite(argValue) && argValue > 0) {
+				multiplier = Math.min(multiplier * argValue, Number.MAX_SAFE_INTEGER);
 			}
 		}
 	}

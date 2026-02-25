@@ -117,6 +117,18 @@ export type ComplexityByOperation = Record<string, number>;
 export type ComplexityCallback = (queryComplexities: ComplexityByOperation) => void;
 
 /**
+ * Details about a field argument coercion failure.
+ */
+export interface CoercionErrorInfo {
+	/** The underlying error thrown by `getArgumentValues`. */
+	error: unknown;
+	/** Name of the field whose arguments failed to coerce. */
+	fieldName: string;
+	/** Name of the parent type that owns the field. */
+	parentType: string;
+}
+
+/**
  * Configuration object accepted by {@link ComplexityLimitFunction}.
  */
 export interface ComplexityLimitOptions {
@@ -147,6 +159,26 @@ export interface ComplexityLimitOptions {
 	 * @default 10_000
 	 */
 	maxNodes?: number;
+
+	/**
+	 * Called when field argument coercion fails (e.g. invalid variable types).
+	 *
+	 * When coercion fails, multiplier-based cost calculation falls back to a
+	 * multiplier of `1`, which may **underestimate** query complexity. Use
+	 * this callback to log warnings or take corrective action.
+	 *
+	 * @param info - Details about the coercion failure.
+	 *
+	 * @example
+	 * ```typescript
+	 * complexityLimit(1000, {
+	 *   onCoercionError: ({ error, fieldName, parentType }) => {
+	 *     console.warn(`Coercion failed for ${parentType}.${fieldName}:`, error);
+	 *   },
+	 * });
+	 * ```
+	 */
+	onCoercionError?: (info: CoercionErrorInfo) => void;
 
 	/**
 	 * Query variables for proper argument coercion and `@skip` / `@include`

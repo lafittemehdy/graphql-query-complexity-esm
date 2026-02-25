@@ -9,12 +9,14 @@
 
 // Exports are sorted by module path (biome's organizeImports rule), not by
 // export name. This is enforced by the linter and is intentional.
+export type { ComplexityResult, ComplexityViolation } from "./complexity-engine.js";
 export { complexityLimit } from "./complexity-rule.js";
 export { ERROR_CODES } from "./constants.js";
 export { complexityDirectiveTypeDefs } from "./directives.js";
 export { fieldExtensionsEstimator, simpleEstimator } from "./estimators.js";
 export { getComplexity, getComplexityBreakdown } from "./get-complexity.js";
 export type {
+	CoercionErrorInfo,
 	ComplexityByOperation,
 	ComplexityCallback,
 	ComplexityEstimator,

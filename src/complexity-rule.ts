@@ -26,7 +26,7 @@ import { createNullPrototypeRecord, describeValueType, isRecordObject } from "./
 interface NormalizedArgs {
 	callback: ComplexityCallback | undefined;
 	options: Required<Pick<ComplexityLimitOptions, "defaultComplexity" | "maxNodes" | "variables">> &
-		Pick<ComplexityLimitOptions, "estimators">;
+		Pick<ComplexityLimitOptions, "estimators" | "onCoercionError">;
 }
 
 /**
@@ -90,12 +90,19 @@ function normalizeArgs(
 		);
 	}
 
+	if (options.onCoercionError !== undefined && typeof options.onCoercionError !== "function") {
+		throw new TypeError(
+			`onCoercionError must be a function, got ${typeof options.onCoercionError}.`,
+		);
+	}
+
 	return {
 		callback,
 		options: {
 			defaultComplexity,
 			estimators: options.estimators,
 			maxNodes,
+			onCoercionError: options.onCoercionError,
 			variables: options.variables ?? {},
 		},
 	};
@@ -170,6 +177,7 @@ export const complexityLimit: ComplexityLimitFunction = (
 			estimators,
 			maxComplexity,
 			maxNodes: options.maxNodes,
+			onCoercionError: options.onCoercionError,
 			schema: context.getSchema(),
 			variables: options.variables,
 		};
@@ -235,7 +243,13 @@ export const complexityLimit: ComplexityLimitFunction = (
 			Document: {
 				leave() {
 					if (callback && !hasReportedError) {
-						callback(complexities);
+						try {
+							callback(complexities);
+						} catch {
+							// User-supplied callback failures must not crash the
+							// validation pipeline.  The callback is informational;
+							// errors inside it are silently discarded.
+						}
 					}
 				},
 			},

@@ -366,6 +366,29 @@ describe("complexity-engine", () => {
 	});
 
 	// -------------------------------------------------------------------
+	// Aliased fields
+	// -------------------------------------------------------------------
+	describe("aliased fields", () => {
+		it("should count aliased fields separately", () => {
+			const { complexity } = measureComplexity(
+				basicSchema,
+				'query { a: user(id: "1") { id } b: user(id: "2") { id } }',
+			);
+			// a(1) + a.id(1) + b(1) + b.id(1) = 4
+			expect(complexity).toBe(4);
+		});
+
+		it("should count same field with multiple aliases in one selection set", () => {
+			const { complexity } = measureComplexity(
+				basicSchema,
+				'query { user(id: "1") { userId: id userName: name realName: name } }',
+			);
+			// user(1) + userId(1) + userName(1) + realName(1) = 4
+			expect(complexity).toBe(4);
+		});
+	});
+
+	// -------------------------------------------------------------------
 	// Abstract types
 	// -------------------------------------------------------------------
 	describe("abstract types", () => {

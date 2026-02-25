@@ -668,6 +668,83 @@ describe("complexityLimit", () => {
 	});
 
 	// -------------------------------------------------------------------
+	// onCoercionError callback
+	// -------------------------------------------------------------------
+	describe("onCoercionError", () => {
+		it("should invoke onCoercionError when argument coercion fails", () => {
+			const onCoercionError = vi.fn();
+			const cb = vi.fn();
+			const rule = complexityLimit(100, { onCoercionError }, cb);
+
+			// user(id: ID!) requires `id`; omitting it causes getArgumentValues
+			// to throw, triggering coerceArguments catch → onCoercionError.
+			const doc = parse("query { user { id } }");
+			validate(basicSchema, doc, [rule]);
+
+			expect(onCoercionError).toHaveBeenCalledOnce();
+			expect(onCoercionError).toHaveBeenCalledWith(
+				expect.objectContaining({
+					fieldName: "user",
+					parentType: "Query",
+				}),
+			);
+			expect(onCoercionError.mock.calls[0][0].error).toBeDefined();
+		});
+
+		it("should throw when onCoercionError is not a function", () => {
+			expect(() =>
+				complexityLimit(100, {
+					onCoercionError: "bad" as unknown as () => void,
+				}),
+			).toThrow(TypeError);
+		});
+	});
+
+	// -------------------------------------------------------------------
+	// Callback exception safety
+	// -------------------------------------------------------------------
+	describe("callback exception safety", () => {
+		it("should not crash when the callback throws", () => {
+			const rule = complexityLimit(100, {}, () => {
+				throw new Error("callback boom");
+			});
+			const doc = parse('query { user(id: "1") { id } }');
+			const errors = validate(basicSchema, doc, [rule]);
+
+			expect(errors).toHaveLength(0);
+		});
+
+		it("should not crash when the callback throws a non-Error value", () => {
+			const rule = complexityLimit(100, {}, () => {
+				throw "string boom";
+			});
+			const doc = parse('query { user(id: "1") { id } }');
+			const errors = validate(basicSchema, doc, [rule]);
+
+			expect(errors).toHaveLength(0);
+		});
+	});
+
+	// -------------------------------------------------------------------
+	// Multi-operation mixed violations
+	// -------------------------------------------------------------------
+	describe("multi-operation mixed violations", () => {
+		it("should report error from the first violating operation", () => {
+			const rule = complexityLimit(2);
+			const doc = parse(`
+				query Small { users { id } }
+				query Big { users { id name posts { id title } } }
+			`);
+			const errors = validate(basicSchema, doc, [rule]);
+
+			// Small: users(1) + id(1) = 2 (within limit)
+			// Big: users(1) + id(1) + name(1) + posts(1) + id(1) + title(1) = 6 (exceeds 2)
+			expect(errors).toHaveLength(1);
+			expect(errors[0]?.message).toContain("exceeds maximum complexity of 2");
+		});
+	});
+
+	// -------------------------------------------------------------------
 	// Additional runtime edge-cases
 	// -------------------------------------------------------------------
 	describe("runtime edge-cases", () => {

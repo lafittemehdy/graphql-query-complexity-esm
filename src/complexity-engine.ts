@@ -15,7 +15,7 @@ import {
 	type ValidationContext,
 } from "graphql";
 import { shouldSkipNode } from "./directives.js";
-import type { ComplexityEstimator, ComplexityEstimatorArgs } from "./types.js";
+import type { CoercionErrorInfo, ComplexityEstimator, ComplexityEstimatorArgs } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Public result types
@@ -129,6 +129,7 @@ export interface TraversalConfig {
 	estimators: ComplexityEstimator[];
 	maxComplexity: number;
 	maxNodes: number;
+	onCoercionError?: (info: CoercionErrorInfo) => void;
 	schema: GraphQLSchema;
 	variables: Record<string, unknown>;
 }
@@ -278,7 +279,13 @@ function processField(
 		return;
 	}
 
-	const args = coerceArguments(fieldDef, field, config.variables);
+	const args = coerceArguments(
+		fieldDef,
+		field,
+		config.variables,
+		config.onCoercionError,
+		frame.parentType.name,
+	);
 	const fieldType = getNamedType(fieldDef.type);
 
 	if (field.selectionSet && fieldType && isCompositeType(fieldType)) {
@@ -369,15 +376,28 @@ function processInlineFragment(
 // Helpers (alphabetical)
 // ---------------------------------------------------------------------------
 
-/** Safely coerce field arguments, falling back to `{}` on error. */
+/**
+ * Safely coerce field arguments, falling back to `{}` on error.
+ *
+ * When coercion fails (e.g. due to invalid variable types), multiplier-based
+ * estimators will see an empty args object and use a multiplier of `1`.  The
+ * optional `onCoercionError` callback is invoked so callers can detect this.
+ */
 function coerceArguments(
 	fieldDef: GraphQLField<unknown, unknown>,
 	node: FieldNode,
 	variables: Record<string, unknown>,
+	onCoercionError?: (info: CoercionErrorInfo) => void,
+	parentTypeName?: string,
 ): Record<string, unknown> {
 	try {
 		return getArgumentValues(fieldDef, node, variables);
-	} catch {
+	} catch (error: unknown) {
+		onCoercionError?.({
+			error,
+			fieldName: fieldDef.name,
+			parentType: parentTypeName ?? "Unknown",
+		});
 		return {};
 	}
 }
@@ -447,7 +467,7 @@ function runEstimators(
 			);
 		}
 		if (typeof result === "number" && Number.isFinite(result)) {
-			return Math.max(0, result);
+			return Math.min(Math.max(0, result), Number.MAX_SAFE_INTEGER);
 		}
 	}
 	return defaultCost + ctx.childComplexity;

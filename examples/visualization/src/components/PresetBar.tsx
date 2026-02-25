@@ -36,9 +36,7 @@ export function PresetBar({ activePresetId, onSelect }: PresetBarProps) {
           {preset.label}
         </button>
       ))}
-      {activeDescription && (
-        <span className="preset-description">{activeDescription}</span>
-      )}
+      {activeDescription && <span className="preset-description">{activeDescription}</span>}
     </div>
   );
 }

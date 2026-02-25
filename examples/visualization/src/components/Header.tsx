@@ -78,14 +78,13 @@ export function Header({ onReplay }: HeaderProps) {
       </div>
 
       <div className="header-right">
-        <button className="header-replay" onClick={onReplay} title="Play intro animation" type="button">
-          <svg
-            aria-hidden="true"
-            fill="currentColor"
-            height="10"
-            viewBox="0 0 24 24"
-            width="10"
-          >
+        <button
+          className="header-replay"
+          onClick={onReplay}
+          title="Play intro animation"
+          type="button"
+        >
+          <svg aria-hidden="true" fill="currentColor" height="10" viewBox="0 0 24 24" width="10">
             <polygon points="5,3 19,12 5,21" />
           </svg>
           play

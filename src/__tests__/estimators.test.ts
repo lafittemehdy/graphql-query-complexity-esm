@@ -166,6 +166,53 @@ describe("fieldExtensionsEstimator", () => {
 		});
 	});
 
+	describe("multiplier edge cases", () => {
+		it("should ignore negative multiplier argument values", () => {
+			const { complexity } = measureComplexity(
+				directiveSchema,
+				"query { users(limit: -5) { id name } }",
+				{ estimators },
+			);
+			// Negative limit is ignored, multiplier stays at 1
+			// child = id(1) + name(1) = 2
+			// users = value(2) + 1 * child(2) = 2 + 2 = 4
+			expect(complexity).toBe(4);
+		});
+
+		it("should ignore zero multiplier argument values", () => {
+			const { complexity } = measureComplexity(
+				directiveSchema,
+				"query { users(limit: 0) { id name } }",
+				{ estimators },
+			);
+			// Zero limit is ignored (not > 0), multiplier stays at 1
+			// child = id(1) + name(1) = 2
+			// users = value(2) + 1 * child(2) = 2 + 2 = 4
+			expect(complexity).toBe(4);
+		});
+
+		it("should clamp multiplier product to MAX_SAFE_INTEGER", () => {
+			const schema = buildSchema(`
+				directive @complexity(value: Int!, multipliers: [String!]) on FIELD_DEFINITION
+				type Query {
+					items(a: Int, b: Int): [Item!]!
+						@complexity(value: 0, multipliers: ["a", "b"])
+				}
+				type Item { id: ID! }
+			`);
+
+			const { complexity } = measureComplexity(
+				schema,
+				"query { items(a: 999999999999, b: 999999999999) { id } }",
+				{ estimators },
+			);
+			// Product would overflow; clamped to MAX_SAFE_INTEGER
+			// items = 0 + MAX_SAFE_INTEGER * 1 = MAX_SAFE_INTEGER
+			expect(complexity).toBeLessThanOrEqual(Number.MAX_SAFE_INTEGER);
+			expect(complexity).toBeGreaterThan(0);
+		});
+	});
+
 	describe("programmatic extensions", () => {
 		it("should use extensions.complexity as base cost", () => {
 			const schema = buildSchema(`
