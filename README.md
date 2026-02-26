@@ -1,10 +1,13 @@
 # graphql-query-complexity-esm
 
 [![CI](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/ci.yml/badge.svg)](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/ci.yml)
+[![Publish](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/publish.yml/badge.svg)](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/publish.yml)
 [![Pages](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/pages.yml/badge.svg)](https://github.com/lafittemehdy/graphql-query-complexity-esm/actions/workflows/pages.yml)
-[![npm version](https://img.shields.io/npm/v/graphql-query-complexity-esm)](https://www.npmjs.com/package/graphql-query-complexity-esm)
+[![npm version](https://img.shields.io/npm/v/graphql-query-complexity-esm?logo=npm)](https://www.npmjs.com/package/graphql-query-complexity-esm)
+[![npm downloads](https://img.shields.io/npm/dm/graphql-query-complexity-esm?logo=npm)](https://www.npmjs.com/package/graphql-query-complexity-esm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node >=22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Provenance](https://img.shields.io/badge/provenance-verified-brightgreen?logo=npm)](https://www.npmjs.com/package/graphql-query-complexity-esm)
 
 A deeply nested or fan-out GraphQL query can burn through resources that simple rate limits won't catch. `graphql-query-complexity-esm` scores every field and rejects queries over budget **before a single resolver runs**.
 
@@ -262,6 +265,7 @@ Frozen object with GraphQL error extension codes:
 
 | Export | Description |
 |---|---|
+| `CoercionErrorInfo` | Coercion error details for directive arguments |
 | `ComplexityByOperation` | Operation-name → complexity map |
 | `ComplexityCallback` | Callback signature |
 | `ComplexityEstimator` | Estimator function signature |
@@ -269,6 +273,8 @@ Frozen object with GraphQL error extension codes:
 | `ComplexityExtensionConfig` | `{ value, multipliers? }` shape |
 | `ComplexityLimitFunction` | Overloaded `complexityLimit` signature |
 | `ComplexityLimitOptions` | Options for `complexityLimit` |
+| `ComplexityResult` | Result object from the complexity engine |
+| `ComplexityViolation` | Violation details for over-budget operations |
 | `GetComplexityOptions` | Options for `getComplexity*` |
 
 ## Integration Examples
@@ -425,6 +431,7 @@ const yoga = createYoga({
 | `src/directives.ts` | `complexityDirectiveTypeDefs`, `shouldSkipNode` (`@skip`/`@include`) |
 | `src/constants.ts` | `DEFAULT_MAX_NODES`, `ERROR_CODES` |
 | `src/types.ts` | Public interfaces, types, and `QueryComplexityValidationError` |
+| `src/utils.ts` | Internal shared helpers (null-prototype records, type guards, value descriptions) |
 | `src/__tests__/` | Behavior tests for all modules |
 
 **Build output:** `src/index.ts` → `tsup` → `dist/` (ESM + CJS + `.d.ts` + sourcemaps)
