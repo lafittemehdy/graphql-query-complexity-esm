@@ -459,14 +459,14 @@ pnpm bench
 
 ## Related Packages
 
-Works with these other GraphQL security packages:
+This package is part of a suite of GraphQL security tools that work independently or together to protect your API:
 
 | Package | Purpose |
 |---|---|
 | [`graphql-query-depth-limit-esm`](https://github.com/lafittemehdy/graphql-query-depth-limit-esm) | Rejects deeply nested queries before execution |
 | [`graphql-rate-limit-redis-esm`](https://github.com/lafittemehdy/graphql-rate-limit-redis-esm) | Redis-backed per-field rate limiting via `@rateLimit` directive |
 
-**Recommended layering:** depth limiting as a fast first gate, complexity analysis for cost control, rate limiting for per-client throttling.
+**Recommended layering:** Use depth limiting as a fast, cheap first gate, complexity analysis for fine-grained cost control, and rate limiting for per-client throttling.
 
 ## License
 
