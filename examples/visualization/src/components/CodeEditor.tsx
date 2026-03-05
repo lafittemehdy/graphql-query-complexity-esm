@@ -273,6 +273,7 @@ export function CodeEditor({
           ref={backdropRef}
         />
         <textarea
+          aria-label="GraphQL query editor"
           className={`code-editor-input${disabled ? " disabled" : ""}`}
           onChange={(e) => onQueryChange(e.target.value)}
           onClick={disabled ? undefined : handleTextareaClick}

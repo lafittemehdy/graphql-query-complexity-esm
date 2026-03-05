@@ -3,7 +3,7 @@
    ========================================================================== */
 
 /* ---------------------------------------------------------------------------
-   Design tokens
+   Design tokens  (visualization family)
    --------------------------------------------------------------------------- */
 
 :root {
@@ -16,21 +16,40 @@
   --bg-surface: rgba(14, 14, 14, 0.92);
   --border: rgba(255, 255, 255, 0.06);
   --border-hover: rgba(255, 255, 255, 0.12);
-  --ce-font-size: 12px;
-  --ce-line-height: 1.7;
-  --ce-padding: 16px 20px;
-  --detail-width: 340px;
   --error: #c86860;
   --error-bright: #e06060;
   --font-mono: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --header-h: 48px;
-  --multiplier: #d88a62;
-  --radius: 8px;
+  --info: #7aa2d4;
+  --radius: 4px;
+  --radius-lg: 8px;
+  --radius-sm: 2px;
+  --snappy: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Motion tokens */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-sine: cubic-bezier(0.37, 0, 0.63, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 350ms;
+
+  /* Glow tokens */
+  --accent-glow: rgba(212, 162, 76, 0.12);
+  --error-glow: rgba(200, 104, 96, 0.12);
+  --success-glow: rgba(128, 184, 88, 0.12);
+
   --success: #80b858;
   --text: #d8d8d8;
   --text-muted: #555;
   --text-secondary: #808080;
+
+  /* Project-specific tokens */
+  --ce-font-size: 12px;
+  --ce-line-height: 1.7;
+  --ce-padding: 16px 20px;
+  --detail-width: 340px;
+  --multiplier: #d88a62;
 }
 
 @supports (height: 100dvh) {
@@ -51,6 +70,11 @@
   padding: 0;
   scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
   scrollbar-width: thin;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg);
 }
 
 html,
@@ -108,12 +132,14 @@ body::after {
 
 @keyframes welcome-in {
   from {
+    filter: blur(4px);
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(12px) scale(0.98);
   }
   to {
+    filter: blur(0);
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -132,7 +158,7 @@ body::after {
 
 .welcome-content {
   align-items: center;
-  animation: welcome-in 0.4s ease both;
+  animation: welcome-in 0.6s var(--ease-out-expo) both;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -170,22 +196,30 @@ body::after {
   margin-top: 32px;
   padding: 10px 24px;
   transition:
-    background 0.15s,
-    border-color 0.15s;
+    background var(--duration-base) var(--ease-out-expo),
+    border-color var(--duration-base) var(--ease-out-expo),
+    box-shadow var(--duration-slow) var(--ease-out-expo);
 }
 
 .welcome-play:hover {
   background: rgba(212, 162, 76, 0.06);
   border-color: rgba(212, 162, 76, 0.5);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.welcome-play:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  outline: none;
 }
 
 .welcome-play-arrow {
   display: inline-block;
-  transition: transform 0.15s;
+  transition: transform var(--duration-base) var(--ease-out-expo);
 }
 
 .welcome-play:hover .welcome-play-arrow {
-  transform: translateX(3px);
+  transform: translateX(4px);
 }
 
 .welcome-skip {
@@ -194,8 +228,8 @@ body::after {
   color: var(--text-muted);
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  letter-spacing: 0.05em;
   margin-top: 14px;
   padding: 4px 8px;
   transition: color 0.15s;
@@ -236,6 +270,7 @@ body::after {
   display: flex;
   gap: 12px;
   height: var(--header-h);
+  justify-content: space-between;
   padding: 0 20px;
   position: relative;
   z-index: 140;
@@ -250,45 +285,52 @@ body::after {
 }
 
 .header-title {
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  border-bottom: 1px solid transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  overflow: hidden;
   text-decoration: none;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  transition:
+    border-color 0.15s var(--snappy),
+    color 0.15s var(--snappy);
   white-space: nowrap;
 }
 
-.header-title:hover {
-  color: var(--text);
+.header-title:hover,
+.header-title:focus-visible {
+  border-bottom-color: rgba(212, 162, 76, 0.75);
+  color: #f2f2f2;
+  outline: none;
 }
 
 .header-install {
   align-items: center;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: var(--text-muted);
-  display: flex;
+  display: inline-flex;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   gap: 8px;
   letter-spacing: 0.02em;
-  padding: 3px 10px;
+  padding: 4px 8px 4px 12px;
 }
 
 .header-install-copy {
   align-items: center;
   color: var(--text-muted);
   display: inline-flex;
-  font-size: 11px;
-  justify-content: center;
   padding: 2px;
-  transition: color 0.15s;
+  transition: color var(--duration-fast) var(--ease-out-expo);
 }
 
 .header-install-copy:hover {
-  color: var(--text);
+  color: var(--accent-hover);
 }
 
 .header-right {
@@ -296,24 +338,27 @@ body::after {
   display: flex;
   flex: 0 0 auto;
   gap: 8px;
+  margin-left: auto;
+  min-width: 0;
 }
 
-.header-replay {
+.header-action-btn {
   align-items: center;
   border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-muted);
+  border-radius: 100px;
+  color: var(--text-secondary);
   display: inline-flex;
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   gap: 4px;
-  padding: 4px 10px;
-  transition: all 0.15s;
+  padding: 5px 12px;
+  transition: all 0.15s var(--snappy);
+  white-space: nowrap;
 }
 
-.header-replay:hover {
+.header-action-btn:hover {
+  background: var(--bg-elevated);
   border-color: var(--border-hover);
-  color: var(--text-secondary);
+  color: var(--text);
 }
 
 /* ---------------------------------------------------------------------------
@@ -349,25 +394,42 @@ body::after {
 .preset-btn {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
+  border-radius: 100px;
+  color: var(--text-secondary);
   font-size: 11px;
-  font-weight: 500;
-  padding: 5px 12px;
+  letter-spacing: 0.02em;
+  padding: 4px 12px;
   text-align: center;
-  transition: all 0.12s;
+  transition:
+    background var(--duration-fast) var(--ease-out-expo),
+    border-color var(--duration-fast) var(--ease-out-expo),
+    box-shadow var(--duration-base) var(--ease-out-expo),
+    color var(--duration-fast) var(--ease-out-expo),
+    transform var(--duration-fast) var(--ease-out-expo);
+  white-space: nowrap;
 }
 
 .preset-btn:hover {
+  background: var(--bg-elevated);
   border-color: var(--border-hover);
-  color: var(--text-secondary);
+  color: var(--text);
+}
+
+.preset-btn:active {
+  transform: scale(0.96);
+}
+
+.preset-btn:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  outline: none;
 }
 
 .preset-btn.active {
-  background: rgba(212, 162, 76, 0.08);
-  border-color: rgba(212, 162, 76, 0.5);
-  color: var(--accent);
+  background: rgba(212, 162, 76, 0.06);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+  color: var(--text);
 }
 
 .preset-description {
@@ -532,11 +594,14 @@ body::after {
   font-weight: 600;
   letter-spacing: 0.02em;
   padding: 2px 6px;
-  transition: opacity 0.1s;
+  transition:
+    box-shadow var(--duration-base) var(--ease-out-expo),
+    opacity var(--duration-fast) var(--ease-out-expo);
 }
 
 .ce-gutter-multiplier {
   border-color: rgba(216, 138, 98, 0.3);
+  box-shadow: 0 0 6px rgba(216, 138, 98, 0.08);
   color: var(--multiplier);
 }
 
@@ -619,7 +684,7 @@ body::after {
 .ce-error {
   background: rgba(200, 104, 96, 0.06);
   border: 1px solid rgba(200, 104, 96, 0.2);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   color: var(--error-bright);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -729,16 +794,19 @@ body::after {
   border-radius: 4px;
   height: 100%;
   transition:
-    background 0.3s,
-    width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    background var(--duration-slow) var(--ease-out-expo),
+    box-shadow var(--duration-slow) var(--ease-out-expo),
+    width 0.4s var(--ease-out-expo);
 }
 
 .verdict-gauge-fill.safe {
   background: var(--success);
+  box-shadow: 0 0 8px var(--success-glow);
 }
 
 .verdict-gauge-fill.crit {
   background: var(--error);
+  box-shadow: 0 0 10px var(--error-glow);
 }
 
 .verdict-badge {
@@ -777,8 +845,8 @@ body::after {
   overflow: hidden;
   position: relative;
   transition:
-    width 0.2s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.2s;
+    border-color var(--duration-base) var(--ease-out-expo),
+    width var(--duration-base) var(--ease-out-expo);
   width: 0;
 }
 
@@ -918,7 +986,7 @@ body::after {
 
 .detail-formula {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   font-family: var(--font-mono);
   overflow: hidden;
 }
@@ -1279,35 +1347,35 @@ body::after {
 /* Scan dim states — backdrop lines */
 .ce-line.ce-scan-dim {
   opacity: 0.12;
-  transition: opacity 0.15s;
+  transition: opacity var(--duration-base) var(--ease-in-out-sine);
 }
 
 .ce-line.ce-scan-done {
   opacity: 0.55;
-  transition: opacity 0.2s;
+  transition: opacity var(--duration-slow) var(--ease-out-expo);
 }
 
 .ce-line.ce-scan-active {
   opacity: 1;
-  text-shadow: 0 0 12px rgba(212, 162, 76, 0.2);
-  transition: opacity 0.1s;
+  text-shadow: 0 0 16px rgba(212, 162, 76, 0.25);
+  transition: opacity var(--duration-fast) var(--ease-out-expo);
 }
 
 /* Scan dim states — line numbers */
 .ce-line-number.ce-ln-dim {
   opacity: 0.12;
-  transition: opacity 0.15s;
+  transition: opacity var(--duration-base) var(--ease-in-out-sine);
 }
 
 .ce-line-number.ce-ln-done {
   opacity: 0.55;
-  transition: opacity 0.2s;
+  transition: opacity var(--duration-slow) var(--ease-out-expo);
 }
 
 .ce-line-number.ce-ln-active {
   color: var(--accent);
   opacity: 1;
-  transition: opacity 0.1s;
+  transition: opacity var(--duration-fast) var(--ease-out-expo);
 }
 
 /* Scan dim states — cost gutter */
@@ -1367,7 +1435,7 @@ body::after {
 }
 
 .verdict-shaking {
-  animation: shake 0.12s ease-in-out 2;
+  animation: shake 0.14s var(--ease-out-expo) 3;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1408,7 +1476,7 @@ body::after {
 
   .detail-panel {
     border-left: none;
-    border-radius: 8px 8px 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     border-top: 1px solid transparent;
     bottom: 0;
     height: 0;
@@ -1416,7 +1484,7 @@ body::after {
     overflow: hidden;
     position: fixed;
     transition:
-      height 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      height 0.2s var(--snappy),
       border-color 0.2s;
     width: 100%;
     z-index: 130;
@@ -1460,7 +1528,7 @@ body::after {
 
   .scan-log {
     border-left: none;
-    border-radius: 8px 8px 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     border-top: 1px solid var(--border);
     bottom: 0;
     height: min(45vh, 340px);
@@ -1489,7 +1557,7 @@ body::after {
     display: none;
   }
 
-  .header-replay {
+  .header-action-btn {
     font-size: 10px;
     min-height: 36px;
     padding: 6px 12px;

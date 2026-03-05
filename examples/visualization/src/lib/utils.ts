@@ -7,6 +7,16 @@
 import type { AnalysisNode } from "../types/analysis";
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Duration (ms) to show the "Copied!" feedback before resetting. */
+export const COPY_FEEDBACK_MS = 1500;
+
+/** Debounce delay (ms) for analysis re-computation on query changes. */
+export const ANALYSIS_DEBOUNCE_MS = 250;
+
+// ---------------------------------------------------------------------------
 // Color mapping
 // ---------------------------------------------------------------------------
 

@@ -96,10 +96,10 @@ export function ScanLog({
       <div className="scan-log-rows">{rows}</div>
 
       <div className={`scan-log-footer${scanIndex >= 0 ? " visible" : ""}`}>
-        <div className="scan-log-footer-top">
+        <output aria-live="polite" className="scan-log-footer-top">
           <span className="scan-log-total-label">Total</span>
           <span className="scan-log-total-value">{formatNumber(runningTotal)}</span>
-        </div>
+        </output>
         <button
           className={`scan-log-cta${complete ? " visible" : ""}`}
           onClick={(e) => {
@@ -108,7 +108,10 @@ export function ScanLog({
           }}
           type="button"
         >
-          explore this query <span className="scan-log-cta-arrow">&rarr;</span>
+          explore this query{" "}
+          <span aria-hidden="true" className="scan-log-cta-arrow">
+            &rarr;
+          </span>
         </button>
       </div>
     </div>

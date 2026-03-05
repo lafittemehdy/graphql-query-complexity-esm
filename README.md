@@ -6,7 +6,7 @@
 [![npm version](https://img.shields.io/npm/v/graphql-query-complexity-esm?logo=npm)](https://www.npmjs.com/package/graphql-query-complexity-esm)
 [![npm downloads](https://img.shields.io/npm/dm/graphql-query-complexity-esm?logo=npm)](https://www.npmjs.com/package/graphql-query-complexity-esm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Node >=22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node >=20](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Provenance](https://img.shields.io/badge/provenance-verified-brightgreen?logo=npm)](https://www.npmjs.com/package/graphql-query-complexity-esm)
 
 A deeply nested or fan-out GraphQL query can burn through resources that simple rate limits won't catch. `graphql-query-complexity-esm` scores every field and rejects queries over budget **before a single resolver runs**.
@@ -21,8 +21,6 @@ A deeply nested or fan-out GraphQL query can burn through resources that simple 
 - **Typed error codes**: `ESTIMATOR_ERROR`, `NODE_LIMIT_EXCEEDED`, `QUERY_TOO_COMPLEX`
 - **TypeScript**: ships `.d.ts` declarations, works with plain JS too
 - **ESM + CJS** dual publish
-- **[Interactive demo](https://lafittemehdy.github.io/graphql-query-complexity-esm/)**: see costs compound field by field
-
 ## Interactive Demo
 
 **[Try it live](https://lafittemehdy.github.io/graphql-query-complexity-esm/)** or run locally:
@@ -33,11 +31,11 @@ npm install
 npm run dev
 ```
 
-Includes preset queries (simple lookups through exponential fan-out), an animated scan showing per-field costs, and a detail panel for inspecting cost formulas.
+Preset queries (simple lookups through exponential fan-out), an animated scan showing per-field costs, and a detail panel for inspecting cost formulas.
 
 ## Requirements
 
-- Node.js `>=22.0.0`
+- Node.js `>=20.0.0`
 - Peer dependency: `graphql ^16.0.0`
 
 ## Installation
@@ -359,6 +357,28 @@ const yoga = createYoga({
   ],
   // ...
 });
+```
+
+## Performance
+
+Complexity analysis uses an **iterative DFS engine** with explicit stack management — no recursion, no stack overflow risk, constant overhead regardless of query depth.
+
+Benchmark thresholds enforced in CI (Node 22, single core):
+
+| Scenario | Query shape | Max allowed |
+|---|---|---|
+| **Small** | 2-field flat query | ≤ 6 ms |
+| **Medium** | Multi-level nested with list arguments | ≤ 6 ms |
+| **Deep** | 18 levels of recursive nesting (complexity 262 144) | ≤ 9 ms |
+| **Wide** | 250 aliased field selections | ≤ 15 ms |
+| **Heavy** | Users → Posts → Comments → Author hierarchy | ≤ 6 ms |
+
+Run benchmarks locally:
+
+```bash
+pnpm run bench          # table output
+pnpm run bench:check    # regression check against thresholds
+pnpm run bench:json     # JSON output for CI integration
 ```
 
 ## Troubleshooting

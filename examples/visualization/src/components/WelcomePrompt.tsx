@@ -8,7 +8,7 @@
  * @module WelcomePrompt
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { disableIntro } from "../lib/utils";
 
@@ -20,6 +20,7 @@ interface WelcomePromptProps {
 /** Full-screen welcome overlay with play/skip options. */
 export function WelcomePrompt({ onPlay, onSkip }: WelcomePromptProps) {
   const [dontShow, setDontShow] = useState(false);
+  const ctaRef = useRef<HTMLButtonElement>(null);
 
   const handlePlay = useCallback(() => {
     if (dontShow) disableIntro();
@@ -31,14 +32,41 @@ export function WelcomePrompt({ onPlay, onSkip }: WelcomePromptProps) {
     onSkip();
   }, [dontShow, onSkip]);
 
-  return (
-    <div className="welcome">
-      <div className="welcome-content">
-        <h1 className="welcome-title">graphql-query-complexity-esm</h1>
-        <p className="welcome-subtitle">See how query costs compound, field by field.</p>
+  /* Focus the CTA on mount; dismiss on Escape */
+  useEffect(() => {
+    ctaRef.current?.focus();
 
-        <button className="welcome-play" onClick={handlePlay} type="button">
-          Watch the scan <span className="welcome-play-arrow">&rarr;</span>
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleSkip();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleSkip]);
+
+  return (
+    <div
+      aria-describedby="welcome-desc"
+      aria-labelledby="welcome-heading"
+      aria-modal="true"
+      className="welcome"
+      role="dialog"
+    >
+      <div className="welcome-content">
+        <h1 className="welcome-title" id="welcome-heading">
+          graphql-query-complexity-esm
+        </h1>
+        <p className="welcome-subtitle" id="welcome-desc">
+          See how query costs compound, field by field.
+        </p>
+
+        <button className="welcome-play" onClick={handlePlay} ref={ctaRef} type="button">
+          Watch the scan{" "}
+          <span aria-hidden="true" className="welcome-play-arrow">
+            &rarr;
+          </span>
         </button>
 
         <button className="welcome-skip" onClick={handleSkip} type="button">
@@ -51,7 +79,7 @@ export function WelcomePrompt({ onPlay, onSkip }: WelcomePromptProps) {
             onChange={(e) => setDontShow(e.target.checked)}
             type="checkbox"
           />
-          <span>Don&apos;t show on reload</span>
+          <span>Don&apos;t show again</span>
         </label>
       </div>
     </div>

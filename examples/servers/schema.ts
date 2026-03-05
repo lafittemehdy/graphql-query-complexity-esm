@@ -123,7 +123,7 @@ export const resolvers = {
 export function printBanner(port: number): void {
 	console.log(`
 ┌─────────────────────────────────────────────┐
-│  graphql-query-complexity-esm  —  Example   │
+│  graphql-query-complexity-esm  —  Example    │
 ├─────────────────────────────────────────────┤
 │  Server:   http://localhost:${port}/graphql    │
 │  Max:      1000 complexity                  │

@@ -142,20 +142,23 @@ export function VerdictBar({
       >
         {hasCost ? formatNumber(cost) : "\u2014"}
       </span>
-      <span className="verdict-separator">/</span>
+      <span aria-hidden="true" className="verdict-separator">
+        /
+      </span>
 
       <div className="verdict-limit-stepper">
         <button
+          aria-label={`Decrease limit by ${step}`}
           className="editor-stepper-btn"
           onPointerDown={decrementHold.onPointerDown}
           onPointerLeave={decrementHold.onPointerLeave}
           onPointerUp={decrementHold.onPointerUp}
-          title={`Decrease limit by ${step}`}
           type="button"
         >
           &minus;
         </button>
         <input
+          aria-label="Complexity limit"
           className="editor-limit-input"
           min={5}
           onChange={handleInput}
@@ -163,27 +166,35 @@ export function VerdictBar({
           value={limit}
         />
         <button
+          aria-label={`Increase limit by ${step}`}
           className="editor-stepper-btn"
           onPointerDown={incrementHold.onPointerDown}
           onPointerLeave={incrementHold.onPointerLeave}
           onPointerUp={incrementHold.onPointerUp}
-          title={`Increase limit by ${step}`}
           type="button"
         >
           +
         </button>
       </div>
 
-      <div className="verdict-gauge">
+      <div
+        aria-label={`Cost to limit ratio: ${Math.round(ratio * 100)}%`}
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={Math.min(Math.round(ratio * 100), 100)}
+        className="verdict-gauge"
+        role="progressbar"
+      >
         <div className={`verdict-gauge-fill ${gaugeClass}`} style={{ width: gaugeWidth }} />
       </div>
 
       {hasCost && (
-        <span
+        <output
+          aria-live="polite"
           className={`verdict-badge ${passed ? "verdict-badge-pass" : "verdict-badge-blocked"}${badgeVisible ? " verdict-badge-visible" : ""}`}
         >
           {passed ? "PASS" : "BLOCKED"}
-        </span>
+        </output>
       )}
     </div>
   );

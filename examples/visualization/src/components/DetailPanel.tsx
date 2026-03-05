@@ -37,7 +37,12 @@ export function DetailPanel({ onClose, onNavigate, result, selectedNodeId }: Det
     <div className={`detail-panel${isVisible ? " visible" : ""}`}>
       {selectedNode && (
         <>
-          <button className="detail-close" onClick={onClose} title="Close (Esc)" type="button">
+          <button
+            aria-label="Close field details"
+            className="detail-close"
+            onClick={onClose}
+            type="button"
+          >
             &times;
           </button>
 
@@ -202,7 +207,14 @@ function CostShareSection({ node, totalCost }: { node: AnalysisNode; totalCost: 
   return (
     <div className="detail-section">
       <div className="detail-section-title">Cost Share</div>
-      <div className="detail-share-bar">
+      <div
+        aria-label={`Cost share: ${percent.toFixed(1)}%`}
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={Math.round(percent)}
+        className="detail-share-bar"
+        role="progressbar"
+      >
         <div
           className="detail-share-fill"
           style={{ backgroundColor: color, width: `${Math.min(percent, 100)}%` }}
@@ -240,9 +252,9 @@ function ParentLink({
   return (
     <div className="detail-section">
       <button
+        aria-label={`Navigate to parent: ${node.parentType}.${node.fieldName}`}
         className="detail-nav-link"
         onClick={() => onNavigate(node.id)}
-        title="Navigate to parent field"
         type="button"
       >
         &larr; {node.parentType}.{node.fieldName}

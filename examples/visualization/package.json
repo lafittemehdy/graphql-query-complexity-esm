@@ -1,5 +1,5 @@
 {
-  "name": "graphql-query-complexity-visualization",
+  "name": "graphql-query-complexity-esm-visualization",
   "private": true,
   "type": "module",
   "scripts": {

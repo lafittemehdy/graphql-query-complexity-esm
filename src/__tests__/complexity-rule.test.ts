@@ -703,25 +703,23 @@ describe("complexityLimit", () => {
 	// -------------------------------------------------------------------
 	// Callback exception safety
 	// -------------------------------------------------------------------
-	describe("callback exception safety", () => {
-		it("should not crash when the callback throws", () => {
+	describe("callback error propagation", () => {
+		it("should propagate when the callback throws an Error", () => {
 			const rule = complexityLimit(100, {}, () => {
 				throw new Error("callback boom");
 			});
 			const doc = parse('query { user(id: "1") { id } }');
-			const errors = validate(basicSchema, doc, [rule]);
 
-			expect(errors).toHaveLength(0);
+			expect(() => validate(basicSchema, doc, [rule])).toThrow("callback boom");
 		});
 
-		it("should not crash when the callback throws a non-Error value", () => {
+		it("should propagate when the callback throws a non-Error value", () => {
 			const rule = complexityLimit(100, {}, () => {
 				throw "string boom";
 			});
 			const doc = parse('query { user(id: "1") { id } }');
-			const errors = validate(basicSchema, doc, [rule]);
 
-			expect(errors).toHaveLength(0);
+			expect(() => validate(basicSchema, doc, [rule])).toThrow("string boom");
 		});
 	});
 

@@ -12,7 +12,8 @@ import {
 	type GetComplexityOptions,
 	QueryComplexityValidationError,
 } from "./types.js";
-import { createNullPrototypeRecord, describeValueType, isRecordObject } from "./utils.js";
+import { createNullPrototypeRecord, describeValueType } from "./utils.js";
+import { assertEstimatorArray, assertOptionsObject, assertPlainObjectValue } from "./validation.js";
 
 interface NormalizedGetComplexityInput {
 	document: DocumentNode;
@@ -33,11 +34,7 @@ function isDocumentNode(value: unknown): value is DocumentNode {
 }
 
 function normalizeGetComplexityInput(options: GetComplexityOptions): NormalizedGetComplexityInput {
-	if (!isRecordObject(options)) {
-		throw new TypeError(
-			`Expected options to be a plain object, got ${describeValueType(options)}.`,
-		);
-	}
+	assertOptionsObject(options);
 
 	const { estimators, maxNodes, query, schema, variables = {} } = options;
 
@@ -49,16 +46,7 @@ function normalizeGetComplexityInput(options: GetComplexityOptions): NormalizedG
 		throw new TypeError("schema must be a GraphQLSchema instance.");
 	}
 
-	if (!Array.isArray(estimators) || estimators.length === 0) {
-		throw new TypeError("estimators must be a non-empty array of functions.");
-	}
-	for (const estimator of estimators) {
-		if (typeof estimator !== "function") {
-			throw new TypeError(
-				`Every estimator must be a function, got ${describeValueType(estimator)}.`,
-			);
-		}
-	}
+	assertEstimatorArray(estimators);
 
 	if (
 		maxNodes !== undefined &&
@@ -67,9 +55,7 @@ function normalizeGetComplexityInput(options: GetComplexityOptions): NormalizedG
 		throw new RangeError(`maxNodes must be a positive integer, got ${maxNodes}.`);
 	}
 
-	if (!isRecordObject(variables)) {
-		throw new TypeError(`variables must be a plain object, got ${describeValueType(variables)}.`);
-	}
+	assertPlainObjectValue(variables, "variables");
 
 	let document: DocumentNode;
 	if (typeof query === "string") {

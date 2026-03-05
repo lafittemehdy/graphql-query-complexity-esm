@@ -17,7 +17,8 @@ import type {
 	ComplexityLimitFunction,
 	ComplexityLimitOptions,
 } from "./types.js";
-import { createNullPrototypeRecord, describeValueType, isRecordObject } from "./utils.js";
+import { createNullPrototypeRecord } from "./utils.js";
+import { assertEstimatorArray, assertOptionsObject, assertPlainObjectValue } from "./validation.js";
 
 // ---------------------------------------------------------------------------
 // Argument normalization
@@ -45,11 +46,7 @@ function normalizeArgs(
 		}
 		callback = optionsOrCallback;
 	} else if (optionsOrCallback !== null && optionsOrCallback !== undefined) {
-		if (!isRecordObject(optionsOrCallback)) {
-			throw new TypeError(
-				`Expected options to be a plain object, got ${describeValueType(optionsOrCallback)}.`,
-			);
-		}
+		assertOptionsObject(optionsOrCallback);
 		options = optionsOrCallback;
 	}
 
@@ -74,20 +71,11 @@ function normalizeArgs(
 	}
 
 	if (options.estimators !== undefined) {
-		if (!Array.isArray(options.estimators) || options.estimators.length === 0) {
-			throw new TypeError("estimators must be a non-empty array of functions.");
-		}
-		for (const est of options.estimators) {
-			if (typeof est !== "function") {
-				throw new TypeError(`Every estimator must be a function, got ${typeof est}.`);
-			}
-		}
+		assertEstimatorArray(options.estimators, (value) => typeof value);
 	}
 
-	if (options.variables !== undefined && !isRecordObject(options.variables)) {
-		throw new TypeError(
-			`variables must be a plain object, got ${describeValueType(options.variables)}.`,
-		);
+	if (options.variables !== undefined) {
+		assertPlainObjectValue(options.variables, "variables");
 	}
 
 	if (options.onCoercionError !== undefined && typeof options.onCoercionError !== "function") {
@@ -243,13 +231,7 @@ export const complexityLimit: ComplexityLimitFunction = (
 			Document: {
 				leave() {
 					if (callback && !hasReportedError) {
-						try {
-							callback(complexities);
-						} catch {
-							// User-supplied callback failures must not crash the
-							// validation pipeline.  The callback is informational;
-							// errors inside it are silently discarded.
-						}
+						callback(complexities);
 					}
 				},
 			},

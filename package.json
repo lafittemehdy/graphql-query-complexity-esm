@@ -1,8 +1,8 @@
 {
 	"name": "graphql-query-complexity-esm",
-	"version": "2.0.1",
+	"version": "2.0.3",
 	"description": "GraphQL query complexity analysis validation rule with estimator chains, directive support, and iterative engine",
-	"author": "Lafitte Mehdy",
+	"author": "Lafitte Mehdy (https://github.com/lafittemehdy)",
 	"license": "MIT",
 	"packageManager": "pnpm@10.18.3",
 	"type": "module",
@@ -23,13 +23,14 @@
 		"README.md"
 	],
 	"engines": {
-		"node": ">=22.0.0"
+		"node": ">=20.0.0"
 	},
 	"keywords": [
 		"complexity-analysis",
 		"dos-protection",
 		"esm",
 		"graphql",
+		"graphql-security",
 		"query-complexity",
 		"security",
 		"validation"

@@ -27,6 +27,7 @@ export function PresetBar({ activePresetId, onSelect }: PresetBarProps) {
     <div className="preset-bar">
       {PRESETS.map((preset) => (
         <button
+          aria-current={preset.id === activePresetId ? "true" : undefined}
           className={`preset-btn${preset.id === activePresetId ? " active" : ""}`}
           key={preset.id}
           onClick={() => onSelect(preset.id)}
@@ -36,7 +37,11 @@ export function PresetBar({ activePresetId, onSelect }: PresetBarProps) {
           {preset.label}
         </button>
       ))}
-      {activeDescription && <span className="preset-description">{activeDescription}</span>}
+      {activeDescription && (
+        <output aria-live="polite" className="preset-description">
+          {activeDescription}
+        </output>
+      )}
     </div>
   );
 }
