@@ -6,7 +6,7 @@ import { complexityDirectiveTypeDefs, shouldSkipNode } from "../directives.js";
 function parseFirstSelection(query: string) {
 	const doc = parse(query);
 	const op = doc.definitions[0];
-	if (!op || op.kind !== "OperationDefinition") throw new Error("Expected operation");
+	if (op?.kind !== "OperationDefinition") throw new Error("Expected operation");
 	const sel = op.selectionSet.selections[0];
 	if (!sel) throw new Error("Expected selection");
 	return sel;

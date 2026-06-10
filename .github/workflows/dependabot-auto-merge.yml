@@ -12,10 +12,14 @@ jobs:
   auto-merge:
     name: Enable auto-merge for Dependabot PRs
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
 
     steps:
+      - name: Skip non-Dependabot PRs
+        if: github.event.pull_request.user.login != 'dependabot[bot]' || github.event.pull_request.draft == true
+        run: echo "Auto-merge only applies to ready Dependabot PRs."
+
       - name: Check release token
+        if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
@@ -26,12 +30,13 @@ jobs:
 
       - name: Fetch Dependabot metadata
         id: metadata
+        if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
         uses: dependabot/fetch-metadata@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge for minor and patch updates
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false && steps.metadata.outputs.update-type != 'version-update:semver-major'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}

@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
 	"assist": {
 		"enabled": true
 	},
@@ -9,6 +9,7 @@
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab",
+		"lineEnding": "auto",
 		"lineWidth": 100
 	},
 	"linter": {
