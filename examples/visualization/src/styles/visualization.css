@@ -1174,12 +1174,12 @@ body::after {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.detail-child-btn:hover .detail-child-name {
-  color: var(--accent);
-}
-
 .detail-child-name {
   color: var(--text);
+}
+
+.detail-child-btn:hover .detail-child-name {
+  color: var(--accent);
 }
 
 .detail-child-cost {
