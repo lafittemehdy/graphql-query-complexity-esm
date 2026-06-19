@@ -53,18 +53,18 @@
 	},
 	"devDependencies": {
 		"@apollo/server": "^5.5.1",
-		"@biomejs/biome": "^2.4.16",
+		"@biomejs/biome": "^2.5.0",
 		"@graphql-tools/schema": "^10.0.33",
 		"@types/node": "^25.9.2",
-		"@vitest/coverage-v8": "^4.1.8",
-		"@vitest/ui": "^4.1.8",
+		"@vitest/coverage-v8": "^4.1.9",
+		"@vitest/ui": "^4.1.9",
 		"graphql": "^16.14.2",
 		"graphql-yoga": "^5.21.2",
 		"husky": "^9.1.7",
 		"tsup": "^8.5.1",
 		"tsx": "^4.22.4",
 		"typescript": "^6.0.3",
-		"vitest": "^4.1.8"
+		"vitest": "^4.1.9"
 	},
 	"scripts": {
 		"bench": "tsx scripts/benchmark.ts",
