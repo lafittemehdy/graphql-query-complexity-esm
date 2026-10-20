@@ -115,8 +115,8 @@ function calculateFieldCost(
   let multiplier = 1;
   for (const name of multipliers) {
     const argValue = args[name];
-    if (typeof argValue === "number" && Number.isFinite(argValue)) {
-      multiplier *= argValue;
+    if (typeof argValue === "number" && Number.isFinite(argValue) && argValue > 0) {
+      multiplier = Math.min(multiplier * argValue, Number.MAX_SAFE_INTEGER);
     }
   }
   return {
@@ -192,10 +192,12 @@ function runEstimators(
 // ---------------------------------------------------------------------------
 
 let nodeCounter = 0;
+let selectionCount = 0;
 
 /** Analyze a GraphQL query and produce a cost tree. */
 export function analyzeQuery(queryString: string, limit: number): AnalysisResult {
   nodeCounter = 0;
+  selectionCount = 0;
 
   try {
     const document = parse(queryString);
@@ -203,7 +205,7 @@ export function analyzeQuery(queryString: string, limit: number): AnalysisResult
     const queryType = schema.getQueryType();
 
     if (!queryType) {
-      return { complexity: 0, error: "No Query type in schema", limit, nodes: [], passed: true };
+      return { complexity: 0, error: "No Query type in schema", limit, nodes: [], passed: false };
     }
 
     const fragments: Record<string, FragmentDefinitionNode> = {};
@@ -243,7 +245,7 @@ export function analyzeQuery(queryString: string, limit: number): AnalysisResult
       error: err instanceof Error ? err.message : "Parse error",
       limit,
       nodes: [],
-      passed: true,
+      passed: false,
     };
   }
 }
@@ -264,6 +266,8 @@ function processSelectionSet(
   const results: AnalysisNode[] = [];
 
   for (const selection of selections) {
+    if (++selectionCount > 10_000)
+      throw new Error("Query exceeds maximum expanded node limit of 10000.");
     switch (selection.kind) {
       case Kind.FIELD: {
         const node = processField(

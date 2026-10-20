@@ -6,6 +6,7 @@ import {
 	type GraphQLSchema,
 	getArgumentValues,
 	getNamedType,
+	getVariableValues,
 	isCompositeType,
 	isInterfaceType,
 	isObjectType,
@@ -13,6 +14,7 @@ import {
 	type OperationDefinitionNode,
 	type SelectionNode,
 	type ValidationContext,
+	versionInfo,
 } from "graphql";
 import { shouldSkipNode } from "./directives.js";
 import type { CoercionErrorInfo, ComplexityEstimator, ComplexityEstimatorArgs } from "./types.js";
@@ -160,6 +162,24 @@ export function calculateComplexity(
 	operation: OperationDefinitionNode,
 	config: TraversalConfig,
 ): ComplexityResult {
+	// Apply operation defaults before evaluating argument multipliers or directives.
+	const result = getVariableValues(
+		config.schema,
+		operation.variableDefinitions ?? [],
+		config.variables,
+	);
+	const values = result as {
+		coerced?: Record<string, unknown>;
+		variableValues?: { coerced: Record<string, unknown> };
+	};
+	const coerced = values.variableValues?.coerced ?? values.coerced ?? config.variables;
+	config = {
+		...config,
+		variables:
+			versionInfo.major >= 17
+				? ((values.variableValues ?? { coerced }) as Record<string, unknown>)
+				: coerced,
+	};
 	const rootType = resolveRootType(operation, config.schema);
 	if (!rootType || !operation.selectionSet) {
 		return { complexity: 0, nodeCount: 0, violation: null };
