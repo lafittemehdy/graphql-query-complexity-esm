@@ -144,6 +144,12 @@ body::after {
 }
 
 .welcome {
+  border: 0;
+  color: var(--text);
+  margin: 0;
+  max-height: none;
+  max-width: none;
+  padding: 0;
   align-items: center;
   background: var(--bg);
   display: flex;
@@ -705,8 +711,10 @@ body::after {
    --------------------------------------------------------------------------- */
 
 .verdict-bar {
+  position: relative;
+  z-index: 140;
   align-items: center;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg);
   border-top: 1px solid var(--border);
   display: flex;
   flex-shrink: 0;
@@ -1493,6 +1501,7 @@ body::after {
   .detail-panel.visible {
     border-top-color: var(--border);
     height: min(50vh, 400px);
+    padding-bottom: 64px;
     overflow-y: auto;
     width: 100%;
   }
@@ -1605,6 +1614,8 @@ body::after {
   }
 
   .verdict-bar {
+    position: relative;
+    z-index: 140;
     flex-wrap: wrap;
     gap: 6px;
     padding: 6px 12px;
@@ -1676,4 +1687,15 @@ body::after {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.14);
+}
+
+.analysis-error {
+  border-bottom: 1px solid var(--border);
+  color: var(--error);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 10px 16px;
 }

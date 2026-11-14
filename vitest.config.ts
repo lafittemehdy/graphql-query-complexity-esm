@@ -1,7 +1,9 @@
+/** Keeps library unit coverage separate from example browser verification. */
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	test: {
+		include: ["src/**/*.test.ts"],
 		coverage: {
 			exclude: ["dist/**", "examples/**", "src/__tests__/**", "tsup.config.ts", "vitest.config.ts"],
 			provider: "v8",

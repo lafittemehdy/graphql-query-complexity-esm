@@ -8,7 +8,7 @@
  * @module VerdictBar
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { type MouseEvent, useCallback, useEffect, useRef } from "react";
 import { formatNumber } from "../lib/utils";
 import type { AnalysisResult } from "../types/analysis";
 
@@ -18,12 +18,20 @@ import type { AnalysisResult } from "../types/analysis";
  * Timing: initial delay 400 ms → 120 ms repeats → 50 ms after 6 ticks.
  */
 function useHoldRepeat(callback: () => void): {
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  onPointerCancel: () => void;
   onPointerDown: () => void;
   onPointerLeave: () => void;
   onPointerUp: () => void;
 } {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ticksRef = useRef(0);
+  const callbackRef = useRef(callback);
+
+  // Repeated presses must use the latest committed limit rather than a stale closure.
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
 
   const stop = useCallback(() => {
     if (timerRef.current != null) {
@@ -36,25 +44,33 @@ function useHoldRepeat(callback: () => void): {
   const schedule = useCallback(() => {
     const delay = ticksRef.current < 6 ? 120 : 50;
     timerRef.current = setTimeout(() => {
-      callback();
+      callbackRef.current();
       ticksRef.current += 1;
       schedule();
     }, delay);
-  }, [callback]);
+  }, []);
 
   const start = useCallback(() => {
     stop();
-    callback();
+    callbackRef.current();
     timerRef.current = setTimeout(() => {
-      callback();
+      callbackRef.current();
       ticksRef.current = 1;
       schedule();
     }, 400);
-  }, [callback, schedule, stop]);
+  }, [schedule, stop]);
 
   useEffect(() => stop, [stop]);
 
-  return { onPointerDown: start, onPointerLeave: stop, onPointerUp: stop };
+  return {
+    onClick: (event) => {
+      if (event.detail === 0) callbackRef.current();
+    },
+    onPointerCancel: stop,
+    onPointerDown: start,
+    onPointerLeave: stop,
+    onPointerUp: stop,
+  };
 }
 
 /** Adaptive step: ~10% of current limit, snapped to a clean number. */
@@ -86,8 +102,8 @@ export function VerdictBar({
   shaking,
 }: VerdictBarProps) {
   const cost = costOverride ?? result?.complexity ?? 0;
-  const hasCost = costOverride != null || result != null;
-  const passed = limit > 0 ? cost <= limit : true;
+  const hasCost = !result?.error && (costOverride != null || result != null);
+  const passed = !result?.error && (limit > 0 ? cost <= limit : true);
   const ratio = limit > 0 ? cost / limit : 0;
   const gaugeWidth = `${Math.min(ratio * 100, 100)}%`;
   const gaugeClass = ratio > 1 ? "crit" : "safe";
@@ -150,6 +166,8 @@ export function VerdictBar({
         <button
           aria-label={`Decrease limit by ${step}`}
           className="editor-stepper-btn"
+          onClick={decrementHold.onClick}
+          onPointerCancel={decrementHold.onPointerCancel}
           onPointerDown={decrementHold.onPointerDown}
           onPointerLeave={decrementHold.onPointerLeave}
           onPointerUp={decrementHold.onPointerUp}
@@ -160,7 +178,7 @@ export function VerdictBar({
         <input
           aria-label="Complexity limit"
           className="editor-limit-input"
-          min={5}
+          min={1}
           onChange={handleInput}
           type="number"
           value={limit}
@@ -168,6 +186,8 @@ export function VerdictBar({
         <button
           aria-label={`Increase limit by ${step}`}
           className="editor-stepper-btn"
+          onClick={incrementHold.onClick}
+          onPointerCancel={incrementHold.onPointerCancel}
           onPointerDown={incrementHold.onPointerDown}
           onPointerLeave={incrementHold.onPointerLeave}
           onPointerUp={incrementHold.onPointerUp}
@@ -188,12 +208,12 @@ export function VerdictBar({
         <div className={`verdict-gauge-fill ${gaugeClass}`} style={{ width: gaugeWidth }} />
       </div>
 
-      {hasCost && (
+      {(hasCost || result?.error) && (
         <output
           aria-live="polite"
           className={`verdict-badge ${passed ? "verdict-badge-pass" : "verdict-badge-blocked"}${badgeVisible ? " verdict-badge-visible" : ""}`}
         >
-          {passed ? "PASS" : "BLOCKED"}
+          {result?.error ? "INVALID" : passed ? "PASS" : "BLOCKED"}
         </output>
       )}
     </div>

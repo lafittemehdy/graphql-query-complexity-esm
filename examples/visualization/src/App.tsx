@@ -325,6 +325,12 @@ export function App() {
         <div className="playground-body">
           <PresetBar activePresetId={activePresetId} onSelect={handlePresetSelect} />
 
+          {analysisResult?.error && (
+            <p className="analysis-error" role="alert">
+              {analysisResult.error}
+            </p>
+          )}
+
           <div className="editor-area">
             <CodeEditor
               dimmed={dimmed}
